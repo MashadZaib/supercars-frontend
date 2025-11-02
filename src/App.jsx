@@ -131,30 +131,32 @@ function App() {
             })}
           </ul>
 
-        <div className="tab-content" id="invoiceTabContent">
-          {tabs.map((tab) => (
+      <div className="tab-content" id="invoiceTabContent">
+        {tabs.map((tab) => {
+          const TabComponent = tab.component;
+          return (
             <div
               key={tab.id}
               className={`tab-pane fade ${activeTab === tab.id ? 'show active' : ''}`}
               role="tabpanel"
+              style={{ display: activeTab === tab.id ? 'block' : 'none' }}
             >
-              {activeTab === tab.id && (
-                <ActiveComponent
-                  setShowModal={setShowModal}
-                  setModalConfig={setModalConfig}
-                  onSubmit={(data, isValid) => handleFormSubmit(tab.id, data, isValid)}
-                  initialData={formData[tab.id]}
-                  onFormValidityChange={(isValid) => {
-                    setCompletedTabs(prev => ({
-                      ...prev,
-                      [tab.id]: isValid
-                    }))
-                  }}
-                />
-              )}
+              <TabComponent
+                setShowModal={setShowModal}
+                setModalConfig={setModalConfig}
+                onSubmit={(data, isValid) => handleFormSubmit(tab.id, data, isValid)}
+                initialData={formData[tab.id]}
+                onFormValidityChange={(isValid) => {
+                  setCompletedTabs(prev => ({
+                    ...prev,
+                    [tab.id]: isValid
+                  }))
+                }}
+              />
             </div>
-          ))}
-        </div>
+          );
+        })}
+      </div>
 
 
 
