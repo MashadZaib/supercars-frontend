@@ -1,0 +1,80 @@
+# -----------------------------
+# React (Vite) + Node Project
+# -----------------------------
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Build output
+dist/
+build/
+coverage/
+*.log
+
+# Vite cache
+.vite/
+vite.config.local.*
+
+# Local environment variables
+.env
+.env.*
+!.env.example
+!.env.local.example
+
+# Editor directories and files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.code-workspace
+
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# npm / yarn / pnpm logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm/
+.yarn/
+.pnpm-store/
+
+# Local testing / temp files
+*.local
+*.bak
+*.tmp
+
+# Mac-specific metadata
+.AppleDouble
+.LSOverride
+
+# Build tools output
+.eslintcache
+.stylelintcache
+
+# Lock files (optional if using multiple managers)
+# uncomment if you only use one package manager
+# yarn.lock
+# package-lock.json
+# pnpm-lock.yaml
+
+# Firebase / Netlify / Vercel
+.firebase/
+.netlify/
+.vercel/
+
+# Misc
+*.orig
