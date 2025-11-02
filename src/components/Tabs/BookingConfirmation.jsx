@@ -3,7 +3,7 @@ import { Formik, Form, Field, ErrorMessage } from 'formik'
 import StepHeading from '../Common/StepHeading'
 import { bookingConfirmationSchema } from '../../schemas/validationSchemas'
 
-const BookingConfirmation = ({ setShowClientModal, onSubmit, initialData, onFormValidityChange }) => {
+const BookingConfirmation = ({ setShowModal, setModalConfig, onSubmit, initialData, onFormValidityChange }) => {
   const initialValues = {
     carrierName: '',
     ratesConfirmed: '',
@@ -73,7 +73,19 @@ const BookingConfirmation = ({ setShowClientModal, onSubmit, initialData, onForm
                 <ErrorMessage name="carrierName" component="div" className="text-danger small mt-1" />
               </div>
               <div className="col-md-6 text-end">
-                <button className="btn btn-primary" type="button">
+                 <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setModalConfig({
+                      title: 'Create New Carrier Name',
+                      fields: [
+                        { name: 'carrierName', label: 'Carrier Name', required: true },                      
+                      ]
+                    })
+                    setShowModal(true)
+                  }}
+                >
                   <i className="fas fa-plus"></i> Create New
                 </button>
               </div>
@@ -142,7 +154,19 @@ const BookingConfirmation = ({ setShowClientModal, onSubmit, initialData, onForm
                 <ErrorMessage name="shipper" component="div" className="text-danger small mt-1" />
               </div>
               <div className="col-md-6 text-end">
-                <button className="btn btn-primary" type="button">
+                 <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setModalConfig({
+                      title: 'Create New Shipper Name',
+                      fields: [
+                        { name: 'shipperName', label: 'Shipper Name', required: true },                      
+                      ]
+                    })
+                    setShowModal(true)
+                  }}
+                >
                   <i className="fas fa-plus"></i> Create New
                 </button>
               </div>
@@ -194,7 +218,19 @@ const BookingConfirmation = ({ setShowClientModal, onSubmit, initialData, onForm
                 <ErrorMessage name="vesselName" component="div" className="text-danger small mt-1" />
               </div>
               <div className="col-md-6 text-end">
-                <button className="btn btn-primary" type="button">
+                 <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setModalConfig({
+                      title: 'Create New Vessel Name',
+                      fields: [
+                        { name: 'vesselName', label: 'Vessel Name', required: true },                      
+                      ]
+                    })
+                    setShowModal(true)
+                  }}
+                >
                   <i className="fas fa-plus"></i> Create New
                 </button>
               </div>
@@ -301,7 +337,19 @@ const BookingConfirmation = ({ setShowClientModal, onSubmit, initialData, onForm
                 <ErrorMessage name="hsCode" component="div" className="text-danger small mt-1" />
               </div>
               <div className="col-md-6 text-end">
-                <button className="btn btn-primary" type="button">
+                 <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setModalConfig({
+                      title: 'Create New HS Code',
+                      fields: [
+                        { name: 'hsCode', label: 'HS Code', required: true },                      
+                      ]
+                    })
+                    setShowModal(true)
+                  }}
+                >
                   <i className="fas fa-plus"></i> Create New
                 </button>
               </div>
@@ -327,7 +375,19 @@ const BookingConfirmation = ({ setShowClientModal, onSubmit, initialData, onForm
                 <ErrorMessage name="cargoDescription" component="div" className="text-danger small mt-1" />
               </div>
               <div className="col-md-6 text-end">
-                <button className="btn btn-primary" type="button">
+                 <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setModalConfig({
+                      title: 'Create New Cargo Description',
+                      fields: [
+                        { type: "textarea", name: 'cargoDescription', label: 'Cargo Description', required: true },                      
+                      ]
+                    })
+                    setShowModal(true)
+                  }}
+                >
                   <i className="fas fa-plus"></i> Create New
                 </button>
               </div>

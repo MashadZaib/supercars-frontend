@@ -1,9 +1,10 @@
-import React from 'react'
+import React from 'react';
+
 import { Formik, Form, Field, FieldArray, ErrorMessage } from 'formik'
 import StepHeading from '../Common/StepHeading'
 import { bookingRequestSchema } from '../../schemas/validationSchemas'
 
-const BookingRequest = ({ setShowClientModal, onSubmit, initialData, onFormValidityChange }) => {
+const BookingRequest = ({ setShowModal, setModalConfig, onSubmit, initialData, onFormValidityChange }) => {
   const initialValues = {
     requestedDate: '',
     typeOfRequest: '',
@@ -30,7 +31,6 @@ const BookingRequest = ({ setShowClientModal, onSubmit, initialData, onFormValid
     }
     setSubmitting(false)
   }
-
   return (
     <>
       <StepHeading 
@@ -106,13 +106,23 @@ const BookingRequest = ({ setShowClientModal, onSubmit, initialData, onFormValid
                 <ErrorMessage name="bookingParty" component="div" className="text-danger small mt-1" />
               </div>
               <div className="col-md-6 text-end">
-                <button 
-                  className="btn btn-primary" 
-                  type="button"
-                  onClick={() => setShowClientModal(true)}
-                >
-                  <i className="fas fa-plus"></i> Create New
-                </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                setModalConfig({
+                  title: 'Create New Booking Party',
+                  fields: [
+                    { name: 'bookingPartyName', label: 'Booking Party Name', required: true },
+                    { type: "textarea", name: 'bookingAddress', label: 'Booking Address', required: true },
+                   
+                  ]
+                })
+                setShowModal(true)
+              }}
+            >
+              <i className="fas fa-plus"></i> Create New
+            </button>
               </div>
             </div>
 
@@ -157,7 +167,19 @@ const BookingRequest = ({ setShowClientModal, onSubmit, initialData, onFormValid
                 <ErrorMessage name="portOfLoad" component="div" className="text-danger small mt-1" />
               </div>
               <div className="col-md-6 text-end">
-                <button className="btn btn-primary" type="button">
+              <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setModalConfig({
+                      title: 'Create New Port Of Load',
+                      fields: [
+                        { name: 'portOfLoad', label: 'Port Of Load', required: true },                      
+                      ]
+                    })
+                    setShowModal(true)
+                  }}
+                >
                   <i className="fas fa-plus"></i> Create New
                 </button>
               </div>
@@ -183,7 +205,19 @@ const BookingRequest = ({ setShowClientModal, onSubmit, initialData, onFormValid
                 <ErrorMessage name="portOfDischarge" component="div" className="text-danger small mt-1" />
               </div>
               <div className="col-md-6 text-end">
-                <button className="btn btn-primary" type="button">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setModalConfig({
+                      title: 'Create New Port of Discharge',
+                      fields: [
+                        { name: 'portOfLoad', label: 'Port of Discharge', required: true },                      
+                      ]
+                    })
+                    setShowModal(true)
+                  }}
+                >
                   <i className="fas fa-plus"></i> Create New
                 </button>
               </div>

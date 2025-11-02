@@ -7,12 +7,16 @@ import ClientInfo from './components/Tabs/ClientInfo'
 import ShippingInstructions from './components/Tabs/ShippingInstructions'
 import Charges from './components/Tabs/Charges'
 import PreviewInvoice from './components/Tabs/PreviewInvoice'
-import CreateClientModal from './components/Modals/CreateClientModal'
+import DynamicCreateModal from './components/Common/DynamicCreateModal'
+
 import PaginationButtons from './components/Common/PaginationButtons'
 
 function App() {
   const [activeTab, setActiveTab] = useState('booking-request')
   const [showClientModal, setShowClientModal] = useState(false)
+  const [showModal, setShowModal] = useState(false)
+  const [modalConfig, setModalConfig] = useState({ title: '', fields: [] })
+
   const [formData, setFormData] = useState({
     bookingRequest: null,
     bookingConfirmation: null,
@@ -127,31 +131,31 @@ function App() {
             })}
           </ul>
 
-      <div className="tab-content" id="invoiceTabContent">
-        {tabs.map((tab) => {
-          const TabComponent = tab.component
-          return (
+        <div className="tab-content" id="invoiceTabContent">
+          {tabs.map((tab) => (
             <div
               key={tab.id}
               className={`tab-pane fade ${activeTab === tab.id ? 'show active' : ''}`}
               role="tabpanel"
-              style={{ display: activeTab === tab.id ? 'block' : 'none' }} // ✅ hide instead of unmount
             >
-              <TabComponent 
-                setShowClientModal={setShowClientModal}
-                onSubmit={(data, isValid) => handleFormSubmit(tab.id, data, isValid)}
-                initialData={formData[tab.id]}
-                onFormValidityChange={(isValid) => {
-                  setCompletedTabs(prev => ({
-                    ...prev,
-                    [tab.id]: isValid
-                  }))
-                }}
-              />
+              {activeTab === tab.id && (
+                <ActiveComponent
+                  setShowModal={setShowModal}
+                  setModalConfig={setModalConfig}
+                  onSubmit={(data, isValid) => handleFormSubmit(tab.id, data, isValid)}
+                  initialData={formData[tab.id]}
+                  onFormValidityChange={(isValid) => {
+                    setCompletedTabs(prev => ({
+                      ...prev,
+                      [tab.id]: isValid
+                    }))
+                  }}
+                />
+              )}
             </div>
-          )
-        })}
-      </div>
+          ))}
+        </div>
+
 
 
           <PaginationButtons 
@@ -164,10 +168,16 @@ function App() {
         </div>
       </Wrapper>
 
-      <CreateClientModal 
-        show={showClientModal} 
-        onHide={() => setShowClientModal(false)} 
-      />
+    <DynamicCreateModal
+      show={showModal}
+      onHide={() => setShowModal(false)}
+      title={modalConfig.title}
+      fields={modalConfig.fields}
+      onSubmit={(data) => {
+        console.log(`Created new from ${modalConfig.title}:`, data)
+        setShowModal(false)
+      }}
+    />
    
     </>
   )

@@ -3,7 +3,7 @@ import { Formik, Form, Field, ErrorMessage } from 'formik'
 import StepHeading from '../Common/StepHeading'
 import { clientInfoSchema } from '../../schemas/validationSchemas'
 
-const ClientInfo = ({ setShowClientModal, onSubmit, initialData, onFormValidityChange }) => {
+const ClientInfo = ({ setShowModal, setModalConfig, onSubmit, initialData, onFormValidityChange }) => {
   const initialValues = {
     date: new Date().toLocaleDateString('en-US', {
       year: 'numeric',
@@ -147,12 +147,21 @@ const ClientInfo = ({ setShowClientModal, onSubmit, initialData, onFormValidityC
                 <ErrorMessage name="client" component="div" className="text-danger small mt-1" />
               </div>
               <div className="col-md-6 text-end">
-                <button 
-                  className="btn btn-primary" 
+              <button
                   type="button"
-                  onClick={() => setShowClientModal(true)}
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setModalConfig({
+                      title: 'Create New Client',
+                      fields: [
+                        { name: 'clientName', label: 'Client Name', required: true }, 
+                        { type: "textarea", name: 'clientAddress', label: 'Client Address', required: true }                     
+                      ]
+                    })
+                    setShowModal(true)
+                  }}
                 >
-                  <i className="fas fa-plus me-1"></i> Create New Client
+                  <i className="fas fa-plus"></i> Create New
                 </button>
               </div>
             </div>
