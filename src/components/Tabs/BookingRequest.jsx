@@ -3,6 +3,8 @@ import React from 'react';
 import { Formik, Form, Field, FieldArray, ErrorMessage } from 'formik'
 import StepHeading from '../Common/StepHeading'
 import { bookingRequestSchema } from '../../schemas/validationSchemas'
+import { createBookingRequest, updateBookingRequest } from "../../api/bookingRequestApi";
+import { toast } from "react-toastify";
 
 const BookingRequest = ({ setShowModal, setModalConfig, onSubmit, initialData, onFormValidityChange }) => {
   const initialValues = {
@@ -24,13 +26,58 @@ const BookingRequest = ({ setShowModal, setModalConfig, onSubmit, initialData, o
     ]
   }
 
-  const handleSubmit = (values, { setSubmitting }) => {
-    console.log('Booking Request Data:', values)
-    if (onSubmit) {
-      onSubmit(values, true);
+   const handleSubmit = async (values, { setSubmitting, resetForm }) => {
+  try {
+    // ✅ Prepare formatted payload
+    const formatted = {
+      requested_date: values.requestedDate,
+      type_of_request: values.typeOfRequest,
+      booking_party: values.bookingParty,
+      user_id: values.userId,
+      port_of_load: values.portOfLoad,
+      port_of_discharge: values.portOfDischarge,
+      cargo_type: values.cargoType,
+      container_size: values.containerSize,
+      hs_code: values.hsCode,
+      quantity: String(values.quantity),
+      weight_kg: String(values.weightKg),
+      commodity: values.commodity,
+      shipping_lines: values.shippingLines.map(line => ({
+        carrier: line.carrier,
+        date_sent: line.dateSent,
+        method: line.method,
+        confirmation_id: line.confirmationId,
+        status: line.status,
+        freight: line.freight
+      }))
+    };
+
+    let response;
+console.log(response, '---------------')
+    if (values.id) {
+      // ✅ Update existing record
+      response = await updateBookingRequest(values.id, formatted);
+      toast.success("Booking Request updated successfully!");
+    } else {
+      // ✅ Create new record
+      response = await createBookingRequest(formatted);
+      toast.success("Booking Request saved successfully!");
     }
-    setSubmitting(false)
+
+    // ✅ Optionally inform parent
+    if (onSubmit) onSubmit(response, true);
+
+    // ✅ Update form with latest backend data
+    resetForm({ values: { ...values, ...response } });
+    
+  } catch (err) {
+    console.error("❌ Error saving booking request:", err);
+    toast.error("Something went wrong!");
+  } finally {
+    setSubmitting(false);
   }
+};
+
   return (
     <>
       <StepHeading 
@@ -38,21 +85,17 @@ const BookingRequest = ({ setShowModal, setModalConfig, onSubmit, initialData, o
         description="Enter the booking details received from the shipper/client" 
       />
 
-<Formik
-    initialValues={initialData && Object.keys(initialData).length ? initialData : initialValues}
-    validationSchema={bookingRequestSchema}
-    onSubmit={(values, { setSubmitting }) => {
-      onSubmit(values, true)
-      setSubmitting(false)
-    }}
-    validateOnMount
-    //enableReinitialize={!!initialData} // ✅ only reinitialize when real data exists
-  >
-    {({ isSubmitting, isValid, touched, values, errors }) => {
-    React.useEffect(() => {
-      if (onFormValidityChange) onFormValidityChange(isValid);
-    }, [isValid]);
-        return (
+ <Formik
+        initialValues={initialData && Object.keys(initialData).length ? initialData : initialValues}
+        validationSchema={bookingRequestSchema}
+        onSubmit={handleSubmit} // ✅ use our handler here
+        validateOnMount
+      >
+        {({ isSubmitting, isValid, touched, values, errors }) => {
+          React.useEffect(() => {
+            if (onFormValidityChange) onFormValidityChange(isValid);
+          }, [isValid]);
+          return (
           <Form>
             {/* Request Date and Type */}
             <div className="row mb-3 align-items-center">
@@ -534,17 +577,18 @@ const BookingRequest = ({ setShowModal, setModalConfig, onSubmit, initialData, o
                 
                   <div>
                   
-                    <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-                      {isSubmitting ? (
-                        <>
-                          <i className="fas fa-spinner fa-spin me-1"></i> Saving...
-                        </>
-                      ) : (
-                        <>
-                          <i className="fas fa-save me-1"></i> Save Booking Request
-                        </>
-                      )}
-                    </button>
+                 <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+  {isSubmitting ? (
+    <>
+      <i className="fas fa-spinner fa-spin me-1"></i> Saving...
+    </>
+  ) : (
+    <>
+      <i className="fas fa-save me-1"></i> {values.id ? "Update Booking Request" : "Save Booking Request"}
+    </>
+  )}
+</button>
+
                   </div>
                 </div>
               </div>

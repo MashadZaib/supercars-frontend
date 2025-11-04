@@ -10,6 +10,9 @@ import PreviewInvoice from './components/Tabs/PreviewInvoice'
 import DynamicCreateModal from './components/Common/DynamicCreateModal'
 
 import PaginationButtons from './components/Common/PaginationButtons'
+import { ToastContainer } from "react-toastify";
+
+import "react-toastify/dist/ReactToastify.css"; // ✅ Import CSS
 
 function App() {
   const [activeTab, setActiveTab] = useState('booking-request')
@@ -180,8 +183,17 @@ function App() {
         setShowModal(false)
       }}
     />
-   
+    <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        pauseOnHover
+        theme="colored"
+      />
     </>
+    
   )
 }
 
