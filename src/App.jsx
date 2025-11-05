@@ -19,6 +19,7 @@ function App() {
   const [showClientModal, setShowClientModal] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [modalConfig, setModalConfig] = useState({ title: '', fields: [] })
+  const [modalResult, setModalResult] = useState(null);
 
   const [formData, setFormData] = useState({
     bookingRequest: null,
@@ -101,7 +102,7 @@ function App() {
     return completedTabs[tabId]
   }
 
-  const ActiveComponent = tabs.find(tab => tab.id === activeTab)?.component
+
 
   return (
     <>
@@ -149,12 +150,13 @@ function App() {
                 setModalConfig={setModalConfig}
                 onSubmit={(data, isValid) => handleFormSubmit(tab.id, data, isValid)}
                 initialData={formData[tab.id]}
-                onFormValidityChange={(isValid) => {
-                  setCompletedTabs(prev => ({
-                    ...prev,
-                    [tab.id]: isValid
-                  }))
-                }}
+                modalResult={modalResult} 
+                // onFormValidityChange={(isValid) => {
+                //   setCompletedTabs(prev => ({
+                //     ...prev,
+                //     [tab.id]: isValid
+                //   }))
+                // }}
               />
             </div>
           );
@@ -179,8 +181,10 @@ function App() {
       title={modalConfig.title}
       fields={modalConfig.fields}
       onSubmit={(data) => {
-        console.log(`Created new from ${modalConfig.title}:`, data)
-        setShowModal(false)
+        console.log(`Created new from ${modalConfig.title}:`, data);
+        setModalResult({ title: modalConfig.title, data }); // ✅ pass result upward
+        setTimeout(() => setModalResult(null), 0);
+        setShowModal(false);
       }}
     />
     <ToastContainer

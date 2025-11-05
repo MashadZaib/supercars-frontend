@@ -2,33 +2,90 @@ import React from 'react'
 import { Formik, Form, Field, ErrorMessage } from 'formik'
 import StepHeading from '../Common/StepHeading'
 import { bookingConfirmationSchema } from '../../schemas/validationSchemas'
+import { toast } from "react-toastify";
+import { useBooking } from "../../context/BookingContext"; // ✅ to get booking_request_id
+import { createBookingConfirmation, updateBookingConfirmation } from "../../api/bookingConfirmationApi";
 
-const BookingConfirmation = ({ setShowModal, setModalConfig, onSubmit, initialData, onFormValidityChange }) => {
-  const initialValues = {
-    carrierName: '',
-    ratesConfirmed: '',
-    bookingConfirmationNo: '',
-    bookingDate: '',
-    shipper: '',
-    portOfLoad: '',
-    portOfDischarge: '',
-    vesselName: '',
-    voyage: '',
-    containerSize: '',
-    quantity: '',
-    weightKg: '',
-    cyCfs: '',
-    hsCode: '',
-    cargoDescription: ''
-  }
+const BookingConfirmation = ({
+  setShowModal,
+  setModalConfig,
+  onSubmit,
+  initialData,
+  onFormValidityChange,
+  modalResult = null 
+}) => {
+  const { bookingId } = useBooking(); 
 
-  const handleSubmit = (values, { setSubmitting }) => {
-    console.log('Booking Confirmation Data:', values)
-    if (onSubmit) {
-      onSubmit(values, true)
+ const initialValues = {
+    id: initialData?.id || null,
+    carrierName: initialData?.carrierName || "",
+    ratesConfirmed: initialData?.ratesConfirmed || "",
+    bookingConfirmationNo: initialData?.bookingConfirmationNo || "",
+    bookingDate: initialData?.bookingDate || "",
+    shipper: initialData?.shipper || "",
+    portOfLoad: initialData?.portOfLoad || "",
+    portOfDischarge: initialData?.portOfDischarge || "",
+    vesselName: initialData?.vesselName || "",
+    voyage: initialData?.voyage || "",
+    containerSize: initialData?.containerSize || "",
+    quantity: initialData?.quantity || "",
+    weightKg: initialData?.weightKg || "",
+    cyCfs: initialData?.cyCfs || "",
+    hsCode: initialData?.hsCode || "",
+    cargoDescription: initialData?.cargoDescription || "",
+    specialInstructions: initialData?.specialInstructions || "",
+    additionalRemarks: initialData?.additionalRemarks || "",
+  };
+
+  const handleSubmit = async (values, { setSubmitting, resetForm }) => {
+    if (!bookingId) {
+      toast.error("❌ Please save a Booking Request first!");
+      setSubmitting(false);
+      return;
     }
-    setSubmitting(false)
-  }
+
+    try {
+      const formatted = {
+        booking_request_id: bookingId,
+        carrier_name: values.carrierName,
+        rates_confirmed: values.ratesConfirmed,
+        booking_confirmation_no: values.bookingConfirmationNo,
+        booking_date: values.bookingDate,
+        shipper: values.shipper,
+        port_of_load: values.portOfLoad,
+        port_of_discharge: values.portOfDischarge,
+        vessel_name: values.vesselName,
+        voyage: values.voyage,
+        container_size: values.containerSize,
+        quantity: values.quantity,
+        weight_kg: values.weightKg,
+        cy_cfs: values.cyCfs,
+        hs_code: values.hsCode,
+        cargo_description: values.cargoDescription,
+        special_instructions: values.specialInstructions,
+        additional_remarks: values.additionalRemarks,
+      };
+
+      let response;
+      if (values.id) {
+        // ✅ Update
+        response = await updateBookingConfirmation(values.id, formatted);
+        toast.success("Booking Confirmation updated successfully!");
+      } else {
+        // ✅ Create new
+        response = await createBookingConfirmation(formatted);
+        toast.success("Booking Confirmation saved successfully!");
+      }
+
+      if (onSubmit) onSubmit(response, true);
+      resetForm({ values: { ...values, ...response } });
+    } catch (err) {
+      console.error("❌ Error saving booking confirmation:", err);
+      toast.error("Something went wrong while saving!");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <>
@@ -37,20 +94,17 @@ const BookingConfirmation = ({ setShowModal, setModalConfig, onSubmit, initialDa
         description="Enter the booking confirmation details received from the shipping line" 
       />
 
-       <Formik
-               initialValues={initialData && Object.keys(initialData).length ? initialData : initialValues}
-               validationSchema={bookingConfirmationSchema}
-               onSubmit={(values, { setSubmitting }) => {
-                 onSubmit(values, true)
-                 setSubmitting(false)
-               }}
-               validateOnMount
-               //enableReinitialize={!!initialData} // ✅ only reinitialize when real data exists
-             >
-      {({ isSubmitting, isValid, touched, values, errors }) => {
-        React.useEffect(() => {
-          if (onFormValidityChange) onFormValidityChange(isValid);
-        }, [isValid]);
+         <Formik
+        initialValues={initialData && Object.keys(initialData).length ? initialData : initialValues}
+        validationSchema={bookingConfirmationSchema}
+        onSubmit={handleSubmit}
+        validateOnMount
+        enableReinitialize
+      >
+        {({ isSubmitting, isValid, touched, values, errors }) => {
+          React.useEffect(() => {
+            if (onFormValidityChange) onFormValidityChange(isValid);
+          }, [isValid]);
         return (
           <Form>
             {/* Carrier Name */}
@@ -439,14 +493,15 @@ const BookingConfirmation = ({ setShowModal, setModalConfig, onSubmit, initialDa
                  
                   <div>
                   
-                    <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                       <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
                       {isSubmitting ? (
                         <>
                           <i className="fas fa-spinner fa-spin me-1"></i> Saving...
                         </>
                       ) : (
                         <>
-                          <i className="fas fa-save me-1"></i> Save Booking Confirmation
+                          <i className="fas fa-save me-1"></i>{" "}
+                          {values.id ? "Update Booking Confirmation" : "Save Booking Confirmation"}
                         </>
                       )}
                     </button>

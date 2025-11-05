@@ -3,7 +3,7 @@ import { Formik, Form, Field, ErrorMessage } from 'formik'
 import StepHeading from '../Common/StepHeading'
 import { clientInfoSchema } from '../../schemas/validationSchemas'
 
-const ClientInfo = ({ setShowModal, setModalConfig, onSubmit, initialData, onFormValidityChange }) => {
+const ClientInfo = ({ setShowModal, setModalConfig, onSubmit, initialData, onFormValidityChange, modalResult = null  }) => {
   const initialValues = {
     date: new Date().toLocaleDateString('en-US', {
       year: 'numeric',

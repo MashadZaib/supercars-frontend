@@ -3,7 +3,7 @@ import { Formik, Form, Field, FieldArray, ErrorMessage } from 'formik'
 import StepHeading from '../Common/StepHeading'
 import { chargesSchema } from '../../schemas/validationSchemas'
 
-const Charges = ({ setShowClientModal, onSubmit, initialData, onFormValidityChange }) => {
+const Charges = ({ setShowClientModal, onSubmit, initialData, onFormValidityChange, modalResult = null  }) => {
   const initialValues = {
     charges: [
       {

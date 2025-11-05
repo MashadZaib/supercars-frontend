@@ -1,7 +1,21 @@
 import * as Yup from 'yup';
 
 export const bookingRequestSchema = Yup.object().shape({
-  requestedDate: Yup.date().required('Requested date is required'),
+  requestedDate: Yup.string()
+  .required("Requested Date is required")
+  .matches(
+    /^\d{4}-\d{2}-\d{2}$/,
+    "Date must be in YYYY-MM-DD format"
+  )
+  .test(
+    "is-valid-date",
+    "Invalid date value",
+    (value) => {
+      if (!value) return false;
+      const date = new Date(value);
+      return !isNaN(date.getTime());
+    }
+  ),
   typeOfRequest: Yup.string().required('Type of request is required'),
   bookingParty: Yup.string().required('Booking party is required'),
   userId: Yup.string().required('User is required'),

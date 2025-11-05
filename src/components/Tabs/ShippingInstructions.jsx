@@ -3,7 +3,7 @@ import { Formik, Form, Field, FieldArray, ErrorMessage } from 'formik'
 import StepHeading from '../Common/StepHeading'
 import { shippingInstructionsSchema } from '../../schemas/validationSchemas'
 
-const ShippingInstructions = ({ setShowClientModal, onSubmit, initialData, onFormValidityChange }) => {
+const ShippingInstructions = ({ setShowClientModal, onSubmit, initialData, onFormValidityChange, modalResult = null  }) => {
   const initialValues = {
     typeOfBillOfLading: '',
     shipper: {
