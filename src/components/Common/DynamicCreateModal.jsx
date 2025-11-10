@@ -15,7 +15,7 @@ const DynamicCreateModal = ({
   const validationSchema = useMemo(() => {
     const shape = {};
     fields.forEach((field) => {
-      if (field.required) {
+      if (field.required && !field.hidden) {
         // basic required rule
         let rule = Yup.string()
           .trim()
@@ -55,11 +55,12 @@ const DynamicCreateModal = ({
 
   if (!show) return null;
 
-  // ✅ Default initial values
+  // ✅ Merge visible + hidden fields with initial values
   const formInitialValues = fields.reduce((acc, f) => {
-    acc[f.name] = initialValues[f.name] || "";
+    // Use value from props or default empty string
+    acc[f.name] = f.value ?? initialValues[f.name] ?? "";
     return acc;
-  }, {});
+  }, { ...initialValues });
 
   return ReactDOM.createPortal(
     <div className="modal fade show" style={{ display: "block" }}>
@@ -74,6 +75,7 @@ const DynamicCreateModal = ({
           <Formik
             initialValues={formInitialValues}
             validationSchema={validationSchema}
+            enableReinitialize
             onSubmit={(values, { resetForm }) => {
               onSubmit(values);
               resetForm();
@@ -83,41 +85,64 @@ const DynamicCreateModal = ({
             {({ isSubmitting }) => (
               <Form>
                 <div className="modal-body">
-                  {fields.map((field) => (
-                    <div key={field.name} className="mb-3">
-                      <label className="form-label">{field.label}</label>
-
-                      {field.type === "textarea" ? (
+                  {fields.map((field) => {
+                    // Hidden fields
+                    if (field.hidden) {
+                      return (
                         <Field
-                          as="textarea"
+                          key={field.name}
+                          type="hidden"
                           name={field.name}
-                          className="form-control"
-                          placeholder={field.placeholder || ""}
-                          rows={field.rows || 3}
+                          value={field.value ?? initialValues[field.name] ?? ""}
                         />
-                      ) : (
-                        <Field
-                          type={field.type || "text"}
-                          name={field.name}
-                          className="form-control"
-                          placeholder={field.placeholder || ""}
-                        />
-                      )}
+                      );
+                    }
 
-                      <ErrorMessage
-                        name={field.name}
-                        component="div"
-                        className="text-danger small mt-1"
-                      />
-                    </div>
-                  ))}
+                    // Visible fields
+                    return (
+                      <div key={field.name} className="mb-3">
+                        <label className="form-label">{field.label}</label>
+
+                        {field.type === "textarea" ? (
+                          <Field
+                            as="textarea"
+                            name={field.name}
+                            className="form-control"
+                            placeholder={field.placeholder || ""}
+                            rows={field.rows || 3}
+                          />
+                        ) : (
+                          <Field
+                            type={field.type || "text"}
+                            name={field.name}
+                            className="form-control"
+                            placeholder={field.placeholder || ""}
+                          />
+                        )}
+
+                        <ErrorMessage
+                          name={field.name}
+                          component="div"
+                          className="text-danger small mt-1"
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={onHide}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={onHide}
+                  >
                     Cancel
                   </button>
-                  <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={isSubmitting}
+                  >
                     {isSubmitting ? (
                       <>
                         <i className="fas fa-spinner fa-spin me-1"></i> Creating...
