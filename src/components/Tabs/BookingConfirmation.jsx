@@ -3,7 +3,7 @@ import { Formik, Form, Field, ErrorMessage } from 'formik'
 import StepHeading from '../Common/StepHeading'
 import { bookingConfirmationSchema } from '../../schemas/validationSchemas'
 import { toast } from "react-toastify";
-import { useBooking } from "../../context/BookingContext"; // ✅ to get booking_request_id
+import { useBooking } from "../../context/BookingContext"; 
 import { createBookingConfirmation, updateBookingConfirmation } from "../../api/bookingConfirmationApi";
 
 const BookingConfirmation = ({
