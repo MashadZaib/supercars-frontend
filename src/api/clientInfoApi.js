@@ -1,7 +1,26 @@
 import api from "./axiosInstance";
 
-export const createClientInfo = (data) => api.post("/client-info/", data);
-export const getClients = () => api.get("/client-info/");
-export const getClient = (id) => api.get(`/client-info/${id}`);
-export const updateClient = (id, data) => api.put(`/client-info/${id}`, data);
-export const deleteClient = (id) => api.delete(`/client-info/${id}`);
+export const createClient = async (data) => {
+  const res = await api.post("/client-info/", data);
+  return res.data;
+};
+
+export const getClients = async () => {
+  const res = await api.get("/client-info/");
+  return res.data;
+};
+
+export const getClient = async (id) => {
+  const res = await api.get(`/client-info/${id}`);
+  return res.data;
+};
+
+export const updateClient = async (id, data) => {
+  const res = await api.put(`/client-info/${id}`, data);
+  return res.data;
+};
+
+export const deleteClient = async (id) => {
+  const res = await api.delete(`/client-info/${id}`);
+  return res.data;
+};

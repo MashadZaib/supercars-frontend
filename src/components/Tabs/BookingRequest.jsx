@@ -12,25 +12,34 @@ import {
   createBookingParty,
   getPorts,
   createPort,
+  getUsers,
+  getCargoTypesFull,
+  getContainerSizes,
+  getHsCodes,
+  createHsCode,
+  getRequestTypes,
 } from "../../api/commonRequest";
 
 // ✅ Reusable autocomplete suggestion list component
 const AutoCompleteList = ({ items, onSelect, visible, fieldName, loading }) => {
   if (!visible) return null;
-  
+
   return (
     <ul
       className="list-group position-absolute w-100 shadow-sm"
       style={{
         zIndex: 1000,
         top: "100%",
-        maxHeight: '180px',
-        overflowY: 'auto',
+        maxHeight: "180px",
+        overflowY: "auto",
       }}
     >
       {loading ? (
         <li className="list-group-item text-center py-2">
-          <div className="spinner-border spinner-border-sm me-2" role="status"></div>
+          <div
+            className="spinner-border spinner-border-sm me-2"
+            role="status"
+          ></div>
           Searching...
         </li>
       ) : items.length > 0 ? (
@@ -101,87 +110,108 @@ const BookingRequest = ({
 
   const [bookingParties, setBookingParties] = useState([]);
   const [ports, setPorts] = useState([]);
+  const [requestTypes, setRequestTypes] = useState([]);
   const [suggestions, setSuggestions] = useState({
     bookingParty: [],
     portOfLoad: [],
     portOfDischarge: [],
+    hsCode: [],
   });
   const [selectedItems, setSelectedItems] = useState({
     bookingParty: null,
     portOfLoad: null,
     portOfDischarge: null,
+    hsCode: null,
   });
   const [visibleSuggestions, setVisibleSuggestions] = useState({
     bookingParty: false,
     portOfLoad: false,
     portOfDischarge: false,
+    hsCode: false,
   });
   const [loading, setLoading] = useState({
     bookingParty: false,
     portOfLoad: false,
     portOfDischarge: false,
+    hsCode: false,
   });
   const [validatedValues, setValidatedValues] = useState({
     bookingParty: false,
     portOfLoad: false,
     portOfDischarge: false,
+    hsCode: false,
   });
 
   // ✅ Custom validation for autocomplete fields
   const validateAutocompleteField = (fieldName, value, suggestions) => {
     if (!value) return `${fieldName} is required`;
-    
+
     // Check if the value exists in the suggestions (case insensitive)
-    const exists = suggestions.some(item => 
-      (item.name || item).toLowerCase() === value.toLowerCase()
+    const exists = suggestions.some(
+      (item) => (item.name || item).toLowerCase() === value.toLowerCase()
     );
-    
-    if (!exists) return `Please select a valid ${fieldName} from the suggestions`;
-    
+
+    if (!exists)
+      return `Please select a valid ${fieldName} from the suggestions`;
+
     return null;
   };
 
   // ✅ Real-time validation as user types
   const validateFieldInRealTime = (fieldName, value, currentSuggestions) => {
     if (!value) {
-      setValidatedValues(prev => ({ ...prev, [fieldName]: false }));
+      setValidatedValues((prev) => ({ ...prev, [fieldName]: false }));
       return false;
     }
-    
-    const exists = currentSuggestions.some(item => 
-      (item.name || item).toLowerCase() === value.toLowerCase()
+
+    const exists = currentSuggestions.some(
+      (item) => (item.name || item).toLowerCase() === value.toLowerCase()
     );
-    
-    setValidatedValues(prev => ({ ...prev, [fieldName]: exists }));
+
+    setValidatedValues((prev) => ({ ...prev, [fieldName]: exists }));
     return exists;
   };
 
   // ✅ Handle form submission with proper ID mapping
-  const handleSubmit = async (values, { setSubmitting, resetForm, setErrors }) => {
+  const handleSubmit = async (
+    values,
+    { setSubmitting, resetForm, setErrors }
+  ) => {
     try {
-      // Validate autocomplete fields before submission
+      console.log("Form Values on Submit:", values); // Debug all values
+
       const errors = {};
-      
+
       const bookingPartyError = validateAutocompleteField(
-        'Booking Party', 
-        values.bookingParty, 
+        "Booking Party",
+        values.bookingParty,
         suggestions.bookingParty
       );
       if (bookingPartyError) errors.bookingParty = bookingPartyError;
-      
+
       const portOfLoadError = validateAutocompleteField(
-        'Port of Load', 
-        values.portOfLoad, 
+        "Port of Load",
+        values.portOfLoad,
         suggestions.portOfLoad
       );
       if (portOfLoadError) errors.portOfLoad = portOfLoadError;
-      
+
       const portOfDischargeError = validateAutocompleteField(
-        'Port of Discharge', 
-        values.portOfDischarge, 
+        "Port of Discharge",
+        values.portOfDischarge,
         suggestions.portOfDischarge
       );
       if (portOfDischargeError) errors.portOfDischarge = portOfDischargeError;
+
+
+
+      const hsCodeError = validateAutocompleteField(
+        "HS Code",
+        values.hsCode,
+        suggestions.hsCode
+      );
+      if (hsCodeError) errors.hsCode = hsCodeError;
+
 
       // If there are validation errors, stop submission
       if (Object.keys(errors).length > 0) {
@@ -194,16 +224,16 @@ const BookingRequest = ({
       // ✅ Prepare formatted payload with IDs instead of strings
       const formatted = {
         requested_date: values.requestedDate,
-        type_of_request: values.typeOfRequest,
-        booking_party_id: values.bookingPartyId, // Send ID instead of string
-        user_id: values.userId,
-        port_of_load_id: values.portOfLoadId, // Send ID instead of string
-        port_of_discharge_id: values.portOfDischargeId, // Send ID instead of string
-        cargo_type_id: values.cargoTypeId, // Send ID instead of string
-        container_size: values.containerSize,
-        hs_code: values.hsCode,
-        quantity: String(values.quantity),
-        weight_kg: String(values.weightKg),
+        type_of_request_id: parseInt(values.typeOfRequest),
+        booking_party_id: parseInt(values.bookingPartyId), // Send ID instead of string
+        user_id: parseInt(values.userId),
+        port_of_load_id: parseInt(values.portOfLoadId), // Send ID instead of string
+        port_of_discharge_id: parseInt(values.portOfDischargeId), // Send ID instead of string
+        cargo_type_id: parseInt(values.cargoType), // Send ID instead of string
+        container_size_id: parseInt(values.containerSize),
+        hs_code_id: parseInt(values.hsCodeId),
+        quantity: parseInt(values.quantity),
+        weight_kg: parseInt(values.weightKg),
         commodity: values.commodity,
         shipping_lines: values.shippingLines.map((line) => ({
           carrier: line.carrier,
@@ -237,67 +267,104 @@ const BookingRequest = ({
   // ✅ Handle search for booking parties with debouncing
   const handleSearchBookingParty = async (term, fromButton = false) => {
     if (!term.trim()) {
-      setSuggestions(prev => ({ ...prev, bookingParty: [] }));
-      setVisibleSuggestions(prev => ({ ...prev, bookingParty: false }));
-      setValidatedValues(prev => ({ ...prev, bookingParty: false }));
+      setSuggestions((prev) => ({ ...prev, bookingParty: [] }));
+      setVisibleSuggestions((prev) => ({ ...prev, bookingParty: false }));
+      setValidatedValues((prev) => ({ ...prev, bookingParty: false }));
       return;
     }
-    
+
     try {
-      setLoading(prev => ({ ...prev, bookingParty: true }));
-      setVisibleSuggestions(prev => ({ ...prev, bookingParty: true }));
-      
+      setLoading((prev) => ({ ...prev, bookingParty: true }));
+      setVisibleSuggestions((prev) => ({ ...prev, bookingParty: true }));
+
       const data = await getBookingParties(term);
-      setSuggestions(prev => ({ ...prev, bookingParty: data || [] }));
-      
+      setSuggestions((prev) => ({ ...prev, bookingParty: data || [] }));
+
       // Real-time validation after search
       validateFieldInRealTime("bookingParty", term, data || []);
     } catch (error) {
       console.error("Error searching booking parties:", error);
-      setSuggestions(prev => ({ ...prev, bookingParty: [] }));
-      setValidatedValues(prev => ({ ...prev, bookingParty: false }));
+      setSuggestions((prev) => ({ ...prev, bookingParty: [] }));
+      setValidatedValues((prev) => ({ ...prev, bookingParty: false }));
       if (fromButton) {
         toast.error("Search failed. Please try again.");
       }
     } finally {
-      setLoading(prev => ({ ...prev, bookingParty: false }));
+      setLoading((prev) => ({ ...prev, bookingParty: false }));
+    }
+  };
+  const handleSearchHsCode = async (term, fromButton = false) => {
+    if (!term.trim()) {
+      setSuggestions((prev) => ({ ...prev, hsCode: [] }));
+      setVisibleSuggestions((prev) => ({ ...prev, hsCode: false }));
+      setValidatedValues((prev) => ({ ...prev, hsCode: false }));
+      return;
+    }
+
+    try {
+      setLoading((prev) => ({ ...prev, hsCode: true }));
+      setVisibleSuggestions((prev) => ({ ...prev, hsCode: true }));
+
+      const data = await getHsCodes(term);
+      setSuggestions((prev) => ({ ...prev, hsCode: data || [] }));
+
+      // Real-time validation after search
+      validateFieldInRealTime("hsCode", term, data || []);
+    } catch (error) {
+      console.error("Error searching booking parties:", error);
+      setSuggestions((prev) => ({ ...prev, hsCode: [] }));
+      setValidatedValues((prev) => ({ ...prev, hsCode: false }));
+      if (fromButton) {
+        toast.error("Search failed. Please try again.");
+      }
+    } finally {
+      setLoading((prev) => ({ ...prev, hsCode: false }));
     }
   };
 
+
+  
+
   // ✅ Handle search for ports with type filtering
-  const handleSearchPort = async (term, field, portType, fromButton = false) => {
+  const handleSearchPort = async (
+    term,
+    field,
+    portType,
+    fromButton = false
+  ) => {
     if (!term.trim()) {
-      setSuggestions(prev => ({ ...prev, [field]: [] }));
-      setVisibleSuggestions(prev => ({ ...prev, [field]: false }));
-      setValidatedValues(prev => ({ ...prev, [field]: false }));
+      setSuggestions((prev) => ({ ...prev, [field]: [] }));
+      setVisibleSuggestions((prev) => ({ ...prev, [field]: false }));
+      setValidatedValues((prev) => ({ ...prev, [field]: false }));
       return;
     }
-    
+
     try {
-      setLoading(prev => ({ ...prev, [field]: true }));
-      setVisibleSuggestions(prev => ({ ...prev, [field]: true }));
-      
+      setLoading((prev) => ({ ...prev, [field]: true }));
+      setVisibleSuggestions((prev) => ({ ...prev, [field]: true }));
+
       // Get all ports and filter by type
       const allPorts = await getPorts(term);
-      
+
       // Filter ports by type (load or discharge)
-      const filteredPorts = allPorts.filter(port => 
-        port.type && port.type.toLowerCase() === portType.toLowerCase()
+      const filteredPorts = allPorts.filter(
+        (port) =>
+          port.type && port.type.toLowerCase() === portType.toLowerCase()
       );
-      
-      setSuggestions(prev => ({ ...prev, [field]: filteredPorts || [] }));
-      
+
+      setSuggestions((prev) => ({ ...prev, [field]: filteredPorts || [] }));
+
       // Real-time validation after search
       validateFieldInRealTime(field, term, filteredPorts || []);
     } catch (error) {
       console.error("Error searching ports:", error);
-      setSuggestions(prev => ({ ...prev, [field]: [] }));
-      setValidatedValues(prev => ({ ...prev, [field]: false }));
+      setSuggestions((prev) => ({ ...prev, [field]: [] }));
+      setValidatedValues((prev) => ({ ...prev, [field]: false }));
       if (fromButton) {
         toast.error("Search failed. Please try again.");
       }
     } finally {
-      setLoading(prev => ({ ...prev, [field]: false }));
+      setLoading((prev) => ({ ...prev, [field]: false }));
     }
   };
 
@@ -305,57 +372,51 @@ const BookingRequest = ({
   const handleSuggestionSelect = (fieldName, item, setFieldValue) => {
     const value = item.name || item;
     const id = item.id;
-    
+
     // Set both the display name and the ID
     setFieldValue(fieldName, value);
     setFieldValue(`${fieldName}Id`, id);
-    
+
     // Store the selected item for reference
-    setSelectedItems(prev => ({ ...prev, [fieldName]: item }));
-    
-    setVisibleSuggestions(prev => ({ ...prev, [fieldName]: false }));
-    setValidatedValues(prev => ({ ...prev, [fieldName]: true }));
+    setSelectedItems((prev) => ({ ...prev, [fieldName]: item }));
+
+    setVisibleSuggestions((prev) => ({ ...prev, [fieldName]: false }));
+    setValidatedValues((prev) => ({ ...prev, [fieldName]: true }));
     toast.success(`Selected: ${value}`);
   };
 
   // ✅ Handle input change with real-time validation
-  const handleInputChange = (fieldName, value, setFieldValue, searchFunction) => {
+  const handleInputChange = (
+    fieldName,
+    value,
+    setFieldValue,
+    searchFunction
+  ) => {
     setFieldValue(fieldName, value);
-    
+
     // Clear the ID when user starts typing
     if (value !== selectedItems[fieldName]?.name) {
       setFieldValue(`${fieldName}Id`, "");
-      setSelectedItems(prev => ({ ...prev, [fieldName]: null }));
+      setSelectedItems((prev) => ({ ...prev, [fieldName]: null }));
     }
-    
+
     // Real-time validation against current suggestions
-    const isValid = validateFieldInRealTime(fieldName, value, suggestions[fieldName]);
-    
-    if (value.length >= 2) {
+    const isValid = validateFieldInRealTime(
+      fieldName,
+      value,
+      suggestions[fieldName]
+    );
+
+    if (value.length >= 1) {
       searchFunction(value);
     } else {
-      setVisibleSuggestions(prev => ({ ...prev, [fieldName]: false }));
+      setVisibleSuggestions((prev) => ({ ...prev, [fieldName]: false }));
       if (value.length > 0 && !isValid) {
-        setValidatedValues(prev => ({ ...prev, [fieldName]: false }));
+        setValidatedValues((prev) => ({ ...prev, [fieldName]: false }));
       }
     }
   };
 
-  // ✅ Handle cargo type selection - store ID
-  const handleCargoTypeChange = (e, setFieldValue) => {
-    const value = e.target.value;
-    setFieldValue("cargoType", value);
-    
-    // Map cargo type names to IDs (you might need to adjust this based on your cargo types)
-    const cargoTypeMap = {
-      "Drop List": 1,
-      "FCL": 2,
-      "LCL": 3,
-      "RORO": 4
-    };
-    
-    setFieldValue("cargoTypeId", cargoTypeMap[value] || "");
-  };
 
   // ✅ Handle new modal-created items (Booking Party or Port)
   useEffect(() => {
@@ -367,29 +428,39 @@ const BookingRequest = ({
           const newParty = await createBookingParty(modalResult.data);
           setBookingParties((prev) => [newParty, ...prev]);
           // Add to suggestions and validate if it matches current field value
-          setSuggestions(prev => ({ 
-            ...prev, 
-            bookingParty: [newParty, ...prev.bookingParty] 
+          setSuggestions((prev) => ({
+            ...prev,
+            bookingParty: [newParty, ...prev.bookingParty],
           }));
           toast.success(`Booking Party "${newParty.name}" added!`);
         } else if (modalResult.title === "Create New Port Of Load") {
           const newPort = await createPort(modalResult.data);
           setPorts((prev) => [newPort, ...prev]);
           // Add only to portOfLoad suggestions
-          setSuggestions(prev => ({
+          setSuggestions((prev) => ({
             ...prev,
-            portOfLoad: [newPort, ...prev.portOfLoad]
+            portOfLoad: [newPort, ...prev.portOfLoad],
           }));
           toast.success(`Port of Load "${newPort.name}" added!`);
         } else if (modalResult.title === "Create New Port of Discharge") {
           const newPort = await createPort(modalResult.data);
           setPorts((prev) => [newPort, ...prev]);
           // Add only to portOfDischarge suggestions
-          setSuggestions(prev => ({
+          setSuggestions((prev) => ({
             ...prev,
-            portOfDischarge: [newPort, ...prev.portOfDischarge]
+            portOfDischarge: [newPort, ...prev.portOfDischarge],
           }));
           toast.success(`Port of Discharge "${newPort.name}" added!`);
+        }
+        if (modalResult.title === "Create New HS Code") {
+          const newHsCode = await createHsCode(modalResult.data);
+          setPorts((prev) => [newHsCode, ...prev]);
+          // Add only to portOfDischarge suggestions
+          setSuggestions((prev) => ({
+            ...prev,
+            portOfDischarge: [newHsCode, ...prev.portOfDischarge],
+          }));
+          toast.success(`Port of Discharge "${newHsCode.name}" added!`);
         }
       } catch (err) {
         console.error("Error creating record:", err);
@@ -401,6 +472,72 @@ const BookingRequest = ({
 
     handleModalResult();
   }, [modalResult]);
+
+  const [users, setUsers] = useState([]);
+  const [cargoTypes, setCargoTypes] = useState([]);
+  const [containerSizes, setContainerSizes] = useState([]);
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await getUsers();
+        setUsers(res); // API se jo data aa raha hai
+      } catch (error) {
+        console.error("Failed to load Users");
+      }
+    };
+
+    fetchUsers();
+  }, []);
+  useEffect(() => {
+    const fetchCargoTypes = async () => {
+      try {
+        const res = await getCargoTypesFull();
+        setCargoTypes(res); // API se jo data aa raha hai
+      } catch (error) {
+        console.error("Failed to load Cargo Types");
+      }
+    };
+
+    fetchCargoTypes();
+  }, []);
+  useEffect(() => {
+    const fetchContainerSizes = async () => {
+      try {
+        const res = await getContainerSizes();
+        setContainerSizes(res); // API se jo data aa raha hai
+      } catch (error) {
+        console.error("Failed to load Container Sizes");
+      }
+    };
+
+    fetchContainerSizes();
+  }, []);
+  useEffect(() => {
+    const fetchRequestTypes = async () => {
+      try {
+        const res = await getRequestTypes();
+        console
+        setRequestTypes(res); // API se jo data aa raha hai
+      } catch (error) {
+        console.error("Failed to load Request Types");
+      }
+    };
+
+    fetchRequestTypes();
+  }, []);
+
+
+  useEffect(() => {
+    const fetchCargoTypes = async () => {
+      try {
+        const res = await getCargoTypesFull();
+        setCargoTypes(res);
+      } catch (error) {
+        console.error("Failed to load Cargo Types");
+      }
+    };
+    fetchCargoTypes();
+  }, []);
 
   return (
     <>
@@ -419,10 +556,44 @@ const BookingRequest = ({
         onSubmit={handleSubmit}
         validateOnMount
       >
-        {({ isSubmitting, isValid, touched, values, errors, setFieldValue }) => {
-          React.useEffect(() => {
-            if (onFormValidityChange) onFormValidityChange(isValid);
-          }, [isValid]);
+        {({
+          isSubmitting,
+          isValid,
+          touched,
+          values,
+          errors,
+          setFieldValue,
+        }) => {
+          // useEffect(() => {
+          //   if (onFormValidityChange) onFormValidityChange(isValid);
+          // }, [isValid]);
+
+             useEffect(() => {
+      console.log("=== FORM VALIDATION DEBUG ===");
+      console.log("Is Form Valid?", isValid);
+      console.log("All Errors:", errors);
+      console.log("All Touched Fields:", touched);
+      console.log("Current Values:", values);
+      console.log("=== END DEBUG ===");
+      
+      if (onFormValidityChange) onFormValidityChange(isValid);
+    }, [isValid, errors, touched, values]);
+
+    // ✅ DEBUG: Show all errors in UI temporarily
+    const showAllErrors = () => {
+      return (
+        <div className="alert alert-warning mt-3">
+          <strong>Validation Errors Found:</strong>
+          <ul className="mb-0 mt-2">
+            {Object.entries(errors).map(([field, error]) => (
+              <li key={field}>
+                <strong>{field}:</strong> {error}
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+    };
 
           return (
             <Form>
@@ -460,11 +631,13 @@ const BookingRequest = ({
                         : ""
                     }`}
                   >
+                  
                     <option value="">Select Request Type</option>
-                    <option value="Email">Email</option>
-                    <option value="WhatsApp">WhatsApp</option>
-                    <option value="Verbal">Verbal</option>
-                    <option value="Other">Other</option>
+                     {requestTypes.map((requestType) => (
+                      <option key={requestType.id} value={requestType.id}>
+                        {requestType.name}
+                      </option>
+                    ))}
                   </Field>
                   <ErrorMessage
                     name="typeOfRequest"
@@ -488,7 +661,7 @@ const BookingRequest = ({
                       name="bookingParty"
                       placeholder="Search Booking Party"
                       className={`form-control ${
-                        (touched.bookingParty && errors.bookingParty) || 
+                        (touched.bookingParty && errors.bookingParty) ||
                         (values.bookingParty && !validatedValues.bookingParty)
                           ? "is-invalid"
                           : ""
@@ -502,13 +675,22 @@ const BookingRequest = ({
                         );
                       }}
                       onFocus={() => {
-                        if (suggestions.bookingParty.length > 0 && values.bookingParty) {
-                          setVisibleSuggestions(prev => ({ ...prev, bookingParty: true }));
+                        if (
+                          suggestions.bookingParty.length > 0 &&
+                          values.bookingParty
+                        ) {
+                          setVisibleSuggestions((prev) => ({
+                            ...prev,
+                            bookingParty: true,
+                          }));
                         }
                       }}
                       onBlur={() => {
                         setTimeout(() => {
-                          setVisibleSuggestions(prev => ({ ...prev, bookingParty: false }));
+                          setVisibleSuggestions((prev) => ({
+                            ...prev,
+                            bookingParty: false,
+                          }));
                         }, 200);
                       }}
                       autoComplete="off"
@@ -527,7 +709,10 @@ const BookingRequest = ({
                       disabled={loading.bookingParty}
                     >
                       {loading.bookingParty ? (
-                        <span className="spinner-border spinner-border-sm" role="status"></span>
+                        <span
+                          className="spinner-border spinner-border-sm"
+                          role="status"
+                        ></span>
                       ) : (
                         <i className="fas fa-search"></i>
                       )}
@@ -537,7 +722,13 @@ const BookingRequest = ({
                   <AutoCompleteList
                     items={suggestions.bookingParty}
                     visible={visibleSuggestions.bookingParty}
-                    onSelect={(item) => handleSuggestionSelect("bookingParty", item, setFieldValue)}
+                    onSelect={(item) =>
+                      handleSuggestionSelect(
+                        "bookingParty",
+                        item,
+                        setFieldValue
+                      )
+                    }
                     fieldName="bookingParty"
                     loading={loading.bookingParty}
                   />
@@ -547,15 +738,20 @@ const BookingRequest = ({
                     component="div"
                     className="text-danger small mt-1"
                   />
-                  {values.bookingParty && !validatedValues.bookingParty && !errors.bookingParty && (
-                    <div className="text-warning small mt-1">
-                      ⚠️ Please select a value from the suggestions
-                    </div>
-                  )}
+                  {values.bookingParty &&
+                    !validatedValues.bookingParty &&
+                    !errors.bookingParty && (
+                      <div className="text-warning small mt-1">
+                        ⚠️ Please select a value from the suggestions
+                      </div>
+                    )}
                   {/* Hidden field for booking party ID */}
                   <Field type="hidden" name="bookingPartyId" />
                 </div>
-                <div className="col-md-6 text-end" style={{ marginTop: '2rem' }}>
+                <div
+                  className="col-md-6 text-end"
+                  style={{ marginTop: "2rem" }}
+                >
                   <button
                     type="button"
                     className="btn btn-primary"
@@ -598,10 +794,11 @@ const BookingRequest = ({
                     }`}
                   >
                     <option value="">Select User</option>
-                    <option value="Yousuf">Yousuf</option>
-                    <option value="Sumaya">Sumaya</option>
-                    <option value="Khurram">Khurram</option>
-                    <option value="Abid">Abid</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.username}
+                      </option>
+                    ))}
                   </Field>
                   <ErrorMessage
                     name="userId"
@@ -624,7 +821,7 @@ const BookingRequest = ({
                       name="portOfLoad"
                       placeholder="Search Port of Load"
                       className={`form-control ${
-                        (touched.portOfLoad && errors.portOfLoad) || 
+                        (touched.portOfLoad && errors.portOfLoad) ||
                         (values.portOfLoad && !validatedValues.portOfLoad)
                           ? "is-invalid"
                           : ""
@@ -638,13 +835,22 @@ const BookingRequest = ({
                         );
                       }}
                       onFocus={() => {
-                        if (suggestions.portOfLoad.length > 0 && values.portOfLoad) {
-                          setVisibleSuggestions(prev => ({ ...prev, portOfLoad: true }));
+                        if (
+                          suggestions.portOfLoad.length > 0 &&
+                          values.portOfLoad
+                        ) {
+                          setVisibleSuggestions((prev) => ({
+                            ...prev,
+                            portOfLoad: true,
+                          }));
                         }
                       }}
                       onBlur={() => {
                         setTimeout(() => {
-                          setVisibleSuggestions(prev => ({ ...prev, portOfLoad: false }));
+                          setVisibleSuggestions((prev) => ({
+                            ...prev,
+                            portOfLoad: false,
+                          }));
                         }, 200);
                       }}
                       autoComplete="off"
@@ -655,7 +861,12 @@ const BookingRequest = ({
                       onClick={() => {
                         const currentValue = values.portOfLoad;
                         if (currentValue) {
-                          handleSearchPort(currentValue, "portOfLoad", "load", true);
+                          handleSearchPort(
+                            currentValue,
+                            "portOfLoad",
+                            "load",
+                            true
+                          );
                         } else {
                           toast.warning("Please enter a search term first");
                         }
@@ -663,7 +874,10 @@ const BookingRequest = ({
                       disabled={loading.portOfLoad}
                     >
                       {loading.portOfLoad ? (
-                        <span className="spinner-border spinner-border-sm" role="status"></span>
+                        <span
+                          className="spinner-border spinner-border-sm"
+                          role="status"
+                        ></span>
                       ) : (
                         <i className="fas fa-search"></i>
                       )}
@@ -673,7 +887,9 @@ const BookingRequest = ({
                   <AutoCompleteList
                     items={suggestions.portOfLoad}
                     visible={visibleSuggestions.portOfLoad}
-                    onSelect={(item) => handleSuggestionSelect("portOfLoad", item, setFieldValue)}
+                    onSelect={(item) =>
+                      handleSuggestionSelect("portOfLoad", item, setFieldValue)
+                    }
                     fieldName="portOfLoad"
                     loading={loading.portOfLoad}
                   />
@@ -683,15 +899,20 @@ const BookingRequest = ({
                     component="div"
                     className="text-danger small mt-1"
                   />
-                  {values.portOfLoad && !validatedValues.portOfLoad && !errors.portOfLoad && (
-                    <div className="text-warning small mt-1">
-                      ⚠️ Please select a value from the suggestions
-                    </div>
-                  )}
+                  {values.portOfLoad &&
+                    !validatedValues.portOfLoad &&
+                    !errors.portOfLoad && (
+                      <div className="text-warning small mt-1">
+                        ⚠️ Please select a value from the suggestions
+                      </div>
+                    )}
                   {/* Hidden field for port of load ID */}
                   <Field type="hidden" name="portOfLoadId" />
                 </div>
-                <div className="col-md-6 text-end" style={{ marginTop: '2rem' }}>
+                <div
+                  className="col-md-6 text-end"
+                  style={{ marginTop: "2rem" }}
+                >
                   <button
                     type="button"
                     className="btn btn-primary"
@@ -707,7 +928,7 @@ const BookingRequest = ({
                           {
                             name: "type",
                             hidden: true,
-                            value: 'load'
+                            value: "load",
                           },
                         ],
                       });
@@ -732,8 +953,9 @@ const BookingRequest = ({
                       name="portOfDischarge"
                       placeholder="Search Port of Discharge"
                       className={`form-control ${
-                        (touched.portOfDischarge && errors.portOfDischarge) || 
-                        (values.portOfDischarge && !validatedValues.portOfDischarge)
+                        (touched.portOfDischarge && errors.portOfDischarge) ||
+                        (values.portOfDischarge &&
+                          !validatedValues.portOfDischarge)
                           ? "is-invalid"
                           : ""
                       }`}
@@ -742,17 +964,31 @@ const BookingRequest = ({
                           "portOfDischarge",
                           e.target.value,
                           setFieldValue,
-                          (term) => handleSearchPort(term, "portOfDischarge", "discharge")
+                          (term) =>
+                            handleSearchPort(
+                              term,
+                              "portOfDischarge",
+                              "discharge"
+                            )
                         );
                       }}
                       onFocus={() => {
-                        if (suggestions.portOfDischarge.length > 0 && values.portOfDischarge) {
-                          setVisibleSuggestions(prev => ({ ...prev, portOfDischarge: true }));
+                        if (
+                          suggestions.portOfDischarge.length > 0 &&
+                          values.portOfDischarge
+                        ) {
+                          setVisibleSuggestions((prev) => ({
+                            ...prev,
+                            portOfDischarge: true,
+                          }));
                         }
                       }}
                       onBlur={() => {
                         setTimeout(() => {
-                          setVisibleSuggestions(prev => ({ ...prev, portOfDischarge: false }));
+                          setVisibleSuggestions((prev) => ({
+                            ...prev,
+                            portOfDischarge: false,
+                          }));
                         }, 200);
                       }}
                       autoComplete="off"
@@ -763,7 +999,12 @@ const BookingRequest = ({
                       onClick={() => {
                         const currentValue = values.portOfDischarge;
                         if (currentValue) {
-                          handleSearchPort(currentValue, "portOfDischarge", "discharge", true);
+                          handleSearchPort(
+                            currentValue,
+                            "portOfDischarge",
+                            "discharge",
+                            true
+                          );
                         } else {
                           toast.warning("Please enter a search term first");
                         }
@@ -771,7 +1012,10 @@ const BookingRequest = ({
                       disabled={loading.portOfDischarge}
                     >
                       {loading.portOfDischarge ? (
-                        <span className="spinner-border spinner-border-sm" role="status"></span>
+                        <span
+                          className="spinner-border spinner-border-sm"
+                          role="status"
+                        ></span>
                       ) : (
                         <i className="fas fa-search"></i>
                       )}
@@ -781,7 +1025,13 @@ const BookingRequest = ({
                   <AutoCompleteList
                     items={suggestions.portOfDischarge}
                     visible={visibleSuggestions.portOfDischarge}
-                    onSelect={(item) => handleSuggestionSelect("portOfDischarge", item, setFieldValue)}
+                    onSelect={(item) =>
+                      handleSuggestionSelect(
+                        "portOfDischarge",
+                        item,
+                        setFieldValue
+                      )
+                    }
                     fieldName="portOfDischarge"
                     loading={loading.portOfDischarge}
                   />
@@ -791,15 +1041,20 @@ const BookingRequest = ({
                     component="div"
                     className="text-danger small mt-1"
                   />
-                  {values.portOfDischarge && !validatedValues.portOfDischarge && !errors.portOfDischarge && (
-                    <div className="text-warning small mt-1">
-                      ⚠️ Please select a value from the suggestions
-                    </div>
-                  )}
+                  {values.portOfDischarge &&
+                    !validatedValues.portOfDischarge &&
+                    !errors.portOfDischarge && (
+                      <div className="text-warning small mt-1">
+                        ⚠️ Please select a value from the suggestions
+                      </div>
+                    )}
                   {/* Hidden field for port of discharge ID */}
                   <Field type="hidden" name="portOfDischargeId" />
                 </div>
-                <div className="col-md-6 text-end" style={{ marginTop: '2rem' }}>
+                <div
+                  className="col-md-6 text-end"
+                  style={{ marginTop: "2rem" }}
+                >
                   <button
                     type="button"
                     className="btn btn-primary"
@@ -815,7 +1070,7 @@ const BookingRequest = ({
                           {
                             name: "type",
                             hidden: true,
-                            value: 'discharge'
+                            value: "discharge",
                           },
                         ],
                       });
@@ -839,13 +1094,14 @@ const BookingRequest = ({
                     className={`form-select ${
                       touched.cargoType && errors.cargoType ? "is-invalid" : ""
                     }`}
-                    onChange={(e) => handleCargoTypeChange(e, setFieldValue)}
+                   
                   >
                     <option value="">Select Cargo Type</option>
-                    <option value="Drop List">Drop List</option>
-                    <option value="FCL">FCL - Full Container Load</option>
-                    <option value="LCL">LCL - Less than Container Load</option>
-                    <option value="RORO">RORO - Roll on Roll Off</option>
+                       {cargoTypes.map((cargoType) => (
+                      <option key={cargoType.id} value={cargoType.id}>
+                        {cargoType.name}
+                      </option>
+                    ))}
                   </Field>
                   <ErrorMessage
                     name="cargoType"
@@ -869,18 +1125,11 @@ const BookingRequest = ({
                     }`}
                   >
                     <option value="">Select Container Size</option>
-                    <option value="20GP">20'GP</option>
-                    <option value="40GP">40'GP</option>
-                    <option value="40HQ">40'HQ</option>
-                    <option value="40NOR">40'NOR</option>
-                    <option value="Non Operating Reefers">
-                      Non Operating Reefers
-                    </option>
-                    <option value="SOC">SOC</option>
-                    <option value="Shipper Own Containers">
-                      Shipper Own Containers
-                    </option>
-                    <option value="Other">Other</option>
+                   {containerSizes.map((containerSize) => (
+                      <option key={containerSize.id} value={containerSize.id}>
+                        {containerSize.name}
+                      </option>
+                    ))}
                   </Field>
                   <ErrorMessage
                     name="containerSize"
@@ -893,46 +1142,7 @@ const BookingRequest = ({
               {/* Rest of the form remains the same... */}
               {/* Quantity and HS Code */}
               <div className="row mb-3 align-items-center">
-                <div className="col-md-6">
-                  <label htmlFor="quantity" className="form-label">
-                    Quantity <span className="text-danger">*</span>
-                  </label>
-                  <Field
-                    type="number"
-                    name="quantity"
-                    className={`form-control ${
-                      touched.quantity && errors.quantity ? "is-invalid" : ""
-                    }`}
-                    placeholder="Enter Quantity"
-                  />
-                  <ErrorMessage
-                    name="quantity"
-                    component="div"
-                    className="text-danger small mt-1"
-                  />
-                </div>
-                <div className="col-md-6">
-                  <label htmlFor="hsCode" className="form-label">
-                    HS CODE <span className="text-danger">*</span>
-                  </label>
-                  <Field
-                    type="text"
-                    name="hsCode"
-                    className={`form-control ${
-                      touched.hsCode && errors.hsCode ? "is-invalid" : ""
-                    }`}
-                    placeholder="Enter HS CODE"
-                  />
-                  <ErrorMessage
-                    name="hsCode"
-                    component="div"
-                    className="text-danger small mt-1"
-                  />
-                </div>
-              </div>
-
-              {/* Weight and Commodity */}
-              <div className="row mb-3 align-items-center">
+             
                 <div className="col-md-6">
                   <label htmlFor="weightKg" className="form-label">
                     Weight (KG) <span className="text-danger">*</span>
@@ -968,6 +1178,157 @@ const BookingRequest = ({
                     component="div"
                     className="text-danger small mt-1"
                   />
+                </div>
+              </div>
+              <div class="row mb-3 align-items-center">
+                            
+                <div className="col-md-6">
+                  <label htmlFor="quantity" className="form-label">
+                    Quantity <span className="text-danger">*</span>
+                  </label>
+                  <Field
+                    type="number"
+                    name="quantity"
+                    className={`form-control ${
+                      touched.quantity && errors.quantity ? "is-invalid" : ""
+                    }`}
+                    placeholder="Enter Quantity"
+                  />
+                  <ErrorMessage
+                    name="quantity"
+                    component="div"
+                    className="text-danger small mt-1"
+                  />
+                </div>
+                          
+                  </div>
+
+              {/* Weight and Commodity */}
+              
+               <div className="row mb-3">
+                <div className="col-md-6 position-relative">
+                  <label htmlFor="hsCode" className="form-label">
+                    HS CODE{" "}
+                    <span className="text-danger">*</span>
+                  </label>
+
+                  <div className="input-group">
+                    <Field
+                      type="text"
+                      name="hsCode"
+                      placeholder="Search HS CODE" 
+                      className={`form-control ${
+                        (touched.hsCode && errors.hsCode) ||
+                        (values.hsCode && !validatedValues.hsCode)
+                          ? "is-invalid"
+                          : ""
+                      }`}
+                      onChange={(e) => {
+                        handleInputChange(
+                          "hsCode",
+                          e.target.value,
+                          setFieldValue,
+                          handleSearchHsCode
+                        );
+                      }}
+                      onFocus={() => {
+                        if (
+                          suggestions.hsCode.length > 0 &&
+                          values.hsCode
+                        ) {
+                          setVisibleSuggestions((prev) => ({
+                            ...prev,
+                            hsCode: true,
+                          }));
+                        }
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => {
+                          setVisibleSuggestions((prev) => ({
+                            ...prev,
+                            hsCode: false,
+                          }));
+                        }, 200);
+                      }}
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={() => {
+                        const currentValue = values.hsCode;
+                        if (currentValue) {
+                          handleSearchHsCode(currentValue, true);
+                        } else {
+                          toast.warning("Please enter a search term first");
+                        }
+                      }}
+                      disabled={loading.hsCode}
+                    >
+                      {loading.hsCode ? (
+                        <span
+                          className="spinner-border spinner-border-sm"
+                          role="status"
+                        ></span>
+                      ) : (
+                        <i className="fas fa-search"></i>
+                      )}
+                    </button>
+                  </div>
+
+                  <AutoCompleteList
+                    items={suggestions.hsCode}
+                    visible={visibleSuggestions.hsCode}
+                    onSelect={(item) =>
+                      handleSuggestionSelect(
+                        "hsCode",
+                        item,
+                        setFieldValue
+                      )
+                    }
+                    fieldName="hsCode"
+                    loading={loading.hsCode}
+                  />
+
+                  <ErrorMessage
+                    name="hsCode"
+                    component="div"
+                    className="text-danger small mt-1"
+                  />
+                  {values.hsCode &&
+                    !validatedValues.hsCode &&
+                    !errors.hsCode && (
+                      <div className="text-warning small mt-1">
+                        ⚠️ Please select a value from the suggestions
+                      </div>
+                    )}
+                  {/* Hidden field for booking party ID */}
+                  <Field type="hidden" name="hsCodeId" />
+                </div>
+                <div
+                  className="col-md-6 text-end"
+                  style={{ marginTop: "2rem" }}
+                >
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setModalConfig({
+                        title: "Create New HS Code",
+                        fields: [
+                          {
+                            name: "name",
+                            label: "HS Code Name",
+                            required: true,
+                          },
+          
+                        ],
+                      });
+                      setShowModal(true);
+                    }}
+                  >
+                    <i className="fas fa-plus"></i> Create New
+                  </button>
                 </div>
               </div>
 
@@ -1262,6 +1623,19 @@ const BookingRequest = ({
                   </div>
                 </div>
               </div>
+              {/* Add this inside your form for debugging */}
+<div className="row mt-3">
+  <div className="col-12">
+    <div className={`alert ${isValid ? 'alert-success' : 'alert-warning'}`}>
+      <strong>Form Status:</strong> {isValid ? 'VALID - Ready to Submit' : 'INVALID - Cannot Submit'}
+      {!isValid && (
+        <div className="mt-2">
+          <small>Check required fields and validation messages</small>
+        </div>
+      )}
+    </div>
+  </div>
+</div>
             </Form>
           );
         }}
