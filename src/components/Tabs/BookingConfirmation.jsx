@@ -67,7 +67,8 @@ const BookingConfirmation = ({
   onSubmit,
   initialData,
   onFormValidityChange,
-  modalResult = null 
+  modalResult = null,
+  bookingRequestData
 }) => {
   const { bookingId } = useBooking(); 
 
@@ -78,15 +79,18 @@ const BookingConfirmation = ({
     bookingConfirmationNo: initialData?.bookingConfirmationNo || "",
     bookingDate: initialData?.bookingDate || "",
     shipper: initialData?.shipper || "",
-    portOfLoad: initialData?.portOfLoad || "",
-    portOfDischarge: initialData?.portOfDischarge || "",
+    portOfLoad: bookingRequestData?.portOfLoad || "",
+
+    portOfDischarge: bookingRequestData?.portOfDischarge || "",
+
     vessel: initialData?.vessel || "",
     voyage: initialData?.voyage || "",
-    containerSize: initialData?.containerSize || "",
+    containerSize: bookingRequestData?.containerSize || "",
     quantity: initialData?.quantity || "",
     weightKg: initialData?.weightKg || "",
     cyCfs: initialData?.cyCfs || "",
-    hsCode: initialData?.hsCode || "",
+    hsCode: bookingRequestData?.hsCode || "",
+
     cargoDescription: initialData?.cargoDescription || "",
     specialInstructions: initialData?.specialInstructions || "",
     additionalRemarks: initialData?.additionalRemarks || "",
@@ -102,7 +106,12 @@ const BookingConfirmation = ({
     vessel: [],
     cargoDescription: [],
   });
-  
+   const [selectedItems, setSelectedItems] = useState({
+      carrier: null,
+      shipper: null,
+      vessel: null,
+      cargoDescription: null,
+    });
 
     const [visibleSuggestions, setVisibleSuggestions] = useState({
       carrier: false,
@@ -251,30 +260,30 @@ const BookingConfirmation = ({
 
     const handleSearchCarrier = async (term, fromButton = false) => {
       if (!term.trim()) {
-        setSuggestions((prev) => ({ ...prev, bookingParty: [] }));
-        setVisibleSuggestions((prev) => ({ ...prev, bookingParty: false }));
-        setValidatedValues((prev) => ({ ...prev, bookingParty: false }));
+        setSuggestions((prev) => ({ ...prev, carrier: [] }));
+        setVisibleSuggestions((prev) => ({ ...prev, carrier: false }));
+        setValidatedValues((prev) => ({ ...prev, carrier: false }));
         return;
       }
   
       try {
-        setLoading((prev) => ({ ...prev, bookingParty: true }));
-        setVisibleSuggestions((prev) => ({ ...prev, bookingParty: true }));
+        setLoading((prev) => ({ ...prev, carrier: true }));
+        setVisibleSuggestions((prev) => ({ ...prev, carrier: true }));
   
-        const data = await getBookingParties(term);
-        setSuggestions((prev) => ({ ...prev, bookingParty: data || [] }));
+        const data = await getCarriers(term);
+        setSuggestions((prev) => ({ ...prev, carrier: data || [] }));
   
         // Real-time validation after search
-        validateFieldInRealTime("bookingParty", term, data || []);
+        validateFieldInRealTime("carrier", term, data || []);
       } catch (error) {
         console.error("Error searching booking parties:", error);
-        setSuggestions((prev) => ({ ...prev, bookingParty: [] }));
-        setValidatedValues((prev) => ({ ...prev, bookingParty: false }));
+        setSuggestions((prev) => ({ ...prev, carrier: [] }));
+        setValidatedValues((prev) => ({ ...prev, carrier: false }));
         if (fromButton) {
           toast.error("Search failed. Please try again.");
         }
       } finally {
-        setLoading((prev) => ({ ...prev, bookingParty: false }));
+        setLoading((prev) => ({ ...prev, carrier: false }));
       }
     };
     const handleSearchShipper = async (term, fromButton = false) => {
@@ -420,14 +429,14 @@ const BookingConfirmation = ({
     const handleModalResult = async () => {
       try {
         if (modalResult.title === "Create New Carrier Name") {
-          const newCarrerName = await createCarrier(modalResult.data);
-          setCarriers((prev) => [newCarrerName, ...prev]);
+          const newCarrer = await createCarrier(modalResult.data);
+          setCarriers((prev) => [newCarrer, ...prev]);
           // Add to suggestions and validate if it matches current field value
           setSuggestions((prev) => ({
             ...prev,
-            carrerName: [newCarrerName, ...prev.carrerName],
+            carrier: [newCarrer, ...prev.carrier],
           }));
-          toast.success(`Carrier Name "${newCarrerName.name}" added!`);
+          toast.success(`Carrier Name "${newCarrer.name}" added!`);
         } else if (modalResult.title === "Create New Shipper Name") {
           const newShipper = await createShipper(modalResult.data);
           setShippers((prev) => [newShipper, ...prev]);
@@ -601,19 +610,19 @@ const BookingConfirmation = ({
                     loading={loading.carrier}
                   />
                   <ErrorMessage
-                    name="carrerName"
+                    name="carrier"
                     component="div"
                     className="text-danger small mt-1"
                   />
-                  {values.carrerName &&
-                    !validatedValues.carrerName &&
-                    !errors.carrerName && (
+                  {values.carrier &&
+                    !validatedValues.carrier &&
+                    !errors.carrier && (
                       <div className="text-warning small mt-1">
                         ⚠️ Please select a value from the suggestions
                       </div>
                     )}
                   {/* Hidden field for booking party ID */}
-                  <Field type="hidden" name="carrerNameId" />
+                  <Field type="hidden" name="carrierId" />
               </div>
               <div className="col-md-6 text-end">
                  <button
@@ -623,7 +632,7 @@ const BookingConfirmation = ({
                     setModalConfig({
                       title: 'Create New Carrier Name',
                       fields: [
-                        { name: 'carrier', label: 'Carrier Name', required: true },                      
+                        { name: 'name', label: 'Carrier Name', required: true },                      
                       ]
                     })
                     setShowModal(true)
@@ -875,6 +884,7 @@ const BookingConfirmation = ({
                   Container Size <span className="text-danger">*</span>
                 </label>
                 <Field 
+                  readOnly
                   as="select" 
                   name="containerSize" 
                   className={`form-select ${touched.containerSize && errors.containerSize ? 'is-invalid' : ''}`}
@@ -946,6 +956,7 @@ const BookingConfirmation = ({
                 </label>
                 <div className="input-group">
                   <Field 
+                  readOnly
                     type="text" 
                     name="hsCode"
                     className={`form-control ${touched.hsCode && errors.hsCode ? 'is-invalid' : ''}`}

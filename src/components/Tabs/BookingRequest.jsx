@@ -1180,7 +1180,7 @@ const BookingRequest = ({
                   />
                 </div>
               </div>
-              <div class="row mb-3 align-items-center">
+              <div className="row mb-3 align-items-center">
                             
                 <div className="col-md-6">
                   <label htmlFor="quantity" className="form-label">

@@ -38,7 +38,16 @@ function App() {
 
   const tabs = [
     { id: 'booking-request', label: 'Booking Request', component: BookingRequest },
-    { id: 'booking-confirmation', label: 'Booking Confirmation', component: BookingConfirmation },
+    {
+      id: 'booking-confirmation',
+      label: 'Booking Confirmation',
+      component: (props) => (
+        <BookingConfirmation
+          {...props}
+          bookingRequestData={formData.bookingRequest}
+        />
+      )
+    },
     { id: 'client-info', label: 'Client Information', component: ClientInfo },
     { id: 'shipping-instructions', label: 'Shipping Instructions', component: ShippingInstructions },
     { id: 'charges', label: 'Charges', component: Charges },
