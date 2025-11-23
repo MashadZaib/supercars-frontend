@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Formik, Form, Field, FieldArray, ErrorMessage } from "formik";
 import StepHeading from "../Common/StepHeading";
 import { bookingRequestSchema } from "../../schemas/validationSchemas";
+import { useBooking } from "../../context/BookingContext";
+
 import {
   createBookingRequest,
   updateBookingRequest,
@@ -71,6 +73,8 @@ const BookingRequest = ({
   onFormValidityChange,
   modalResult,
 }) => {
+  const { setBookingId, setBookingRequestData } = useBooking(); 
+
   const initialValues = {
     requestedDate: "",
     typeOfRequest: "",
@@ -203,15 +207,12 @@ const BookingRequest = ({
       );
       if (portOfDischargeError) errors.portOfDischarge = portOfDischargeError;
 
-
-
       const hsCodeError = validateAutocompleteField(
         "HS Code",
         values.hsCode,
         suggestions.hsCode
       );
       if (hsCodeError) errors.hsCode = hsCodeError;
-
 
       // If there are validation errors, stop submission
       if (Object.keys(errors).length > 0) {
@@ -253,9 +254,31 @@ const BookingRequest = ({
         response = await createBookingRequest(formatted);
         toast.success("Booking Request saved successfully!");
       }
-
-      if (onSubmit) onSubmit(response.data || response, true);
-      resetForm({ values: { ...values, ...response.data } });
+      const saved = response.data || response;
+      setBookingId(saved.id);
+      const selectedContainerSize = containerSizes.find(
+        (cs) => String(cs.id) === String(values.containerSize)
+      );
+      setBookingRequestData({
+        id: saved.id,
+        requestedDate: values.requestedDate,
+        typeOfRequest: values.typeOfRequest,
+        bookingParty: values.bookingParty,
+        userId: values.userId,
+        portOfLoad: values.portOfLoad,
+        portOfDischarge: values.portOfDischarge,
+        portOfLoadId: values.portOfLoadId,
+        portOfDischargeId: values.portOfDischargeId,
+        containerSizeId: values.containerSize,
+        containerSize: selectedContainerSize?.name || "",
+        quantity: values.quantity,
+        hsCodeId: values.hsCodeId,
+        hsCode: values.hsCode,
+        weightKg: values.weightKg,
+        commodity: values.commodity,
+      });
+      if (onSubmit) onSubmit(saved, true);
+      resetForm({ values: { ...values, ...saved } });
     } catch (err) {
       console.error("❌ Error saving booking request:", err);
       toast.error("Something went wrong!");
@@ -321,9 +344,6 @@ const BookingRequest = ({
       setLoading((prev) => ({ ...prev, hsCode: false }));
     }
   };
-
-
-  
 
   // ✅ Handle search for ports with type filtering
   const handleSearchPort = async (
@@ -416,7 +436,6 @@ const BookingRequest = ({
       }
     }
   };
-
 
   // ✅ Handle new modal-created items (Booking Party or Port)
   useEffect(() => {
@@ -516,7 +535,7 @@ const BookingRequest = ({
     const fetchRequestTypes = async () => {
       try {
         const res = await getRequestTypes();
-        console
+        console;
         setRequestTypes(res); // API se jo data aa raha hai
       } catch (error) {
         console.error("Failed to load Request Types");
@@ -525,7 +544,6 @@ const BookingRequest = ({
 
     fetchRequestTypes();
   }, []);
-
 
   useEffect(() => {
     const fetchCargoTypes = async () => {
@@ -568,32 +586,32 @@ const BookingRequest = ({
           //   if (onFormValidityChange) onFormValidityChange(isValid);
           // }, [isValid]);
 
-             useEffect(() => {
-      console.log("=== FORM VALIDATION DEBUG ===");
-      console.log("Is Form Valid?", isValid);
-      console.log("All Errors:", errors);
-      console.log("All Touched Fields:", touched);
-      console.log("Current Values:", values);
-      console.log("=== END DEBUG ===");
-      
-      if (onFormValidityChange) onFormValidityChange(isValid);
-    }, [isValid, errors, touched, values]);
+          useEffect(() => {
+            console.log("=== FORM VALIDATION DEBUG ===");
+            console.log("Is Form Valid?", isValid);
+            console.log("All Errors:", errors);
+            console.log("All Touched Fields:", touched);
+            console.log("Current Values:", values);
+            console.log("=== END DEBUG ===");
 
-    // ✅ DEBUG: Show all errors in UI temporarily
-    const showAllErrors = () => {
-      return (
-        <div className="alert alert-warning mt-3">
-          <strong>Validation Errors Found:</strong>
-          <ul className="mb-0 mt-2">
-            {Object.entries(errors).map(([field, error]) => (
-              <li key={field}>
-                <strong>{field}:</strong> {error}
-              </li>
-            ))}
-          </ul>
-        </div>
-      );
-    };
+            if (onFormValidityChange) onFormValidityChange(isValid);
+          }, [isValid, errors, touched, values]);
+
+          // ✅ DEBUG: Show all errors in UI temporarily
+          const showAllErrors = () => {
+            return (
+              <div className="alert alert-warning mt-3">
+                <strong>Validation Errors Found:</strong>
+                <ul className="mb-0 mt-2">
+                  {Object.entries(errors).map(([field, error]) => (
+                    <li key={field}>
+                      <strong>{field}:</strong> {error}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          };
 
           return (
             <Form>
@@ -631,9 +649,8 @@ const BookingRequest = ({
                         : ""
                     }`}
                   >
-                  
                     <option value="">Select Request Type</option>
-                     {requestTypes.map((requestType) => (
+                    {requestTypes.map((requestType) => (
                       <option key={requestType.id} value={requestType.id}>
                         {requestType.name}
                       </option>
@@ -1094,10 +1111,9 @@ const BookingRequest = ({
                     className={`form-select ${
                       touched.cargoType && errors.cargoType ? "is-invalid" : ""
                     }`}
-                   
                   >
                     <option value="">Select Cargo Type</option>
-                       {cargoTypes.map((cargoType) => (
+                    {cargoTypes.map((cargoType) => (
                       <option key={cargoType.id} value={cargoType.id}>
                         {cargoType.name}
                       </option>
@@ -1125,7 +1141,7 @@ const BookingRequest = ({
                     }`}
                   >
                     <option value="">Select Container Size</option>
-                   {containerSizes.map((containerSize) => (
+                    {containerSizes.map((containerSize) => (
                       <option key={containerSize.id} value={containerSize.id}>
                         {containerSize.name}
                       </option>
@@ -1142,7 +1158,6 @@ const BookingRequest = ({
               {/* Rest of the form remains the same... */}
               {/* Quantity and HS Code */}
               <div className="row mb-3 align-items-center">
-             
                 <div className="col-md-6">
                   <label htmlFor="weightKg" className="form-label">
                     Weight (KG) <span className="text-danger">*</span>
@@ -1181,7 +1196,6 @@ const BookingRequest = ({
                 </div>
               </div>
               <div className="row mb-3 align-items-center">
-                            
                 <div className="col-md-6">
                   <label htmlFor="quantity" className="form-label">
                     Quantity <span className="text-danger">*</span>
@@ -1200,23 +1214,21 @@ const BookingRequest = ({
                     className="text-danger small mt-1"
                   />
                 </div>
-                          
-                  </div>
+              </div>
 
               {/* Weight and Commodity */}
-              
-               <div className="row mb-3">
+
+              <div className="row mb-3">
                 <div className="col-md-6 position-relative">
                   <label htmlFor="hsCode" className="form-label">
-                    HS CODE{" "}
-                    <span className="text-danger">*</span>
+                    HS CODE <span className="text-danger">*</span>
                   </label>
 
                   <div className="input-group">
                     <Field
                       type="text"
                       name="hsCode"
-                      placeholder="Search HS CODE" 
+                      placeholder="Search HS CODE"
                       className={`form-control ${
                         (touched.hsCode && errors.hsCode) ||
                         (values.hsCode && !validatedValues.hsCode)
@@ -1232,10 +1244,7 @@ const BookingRequest = ({
                         );
                       }}
                       onFocus={() => {
-                        if (
-                          suggestions.hsCode.length > 0 &&
-                          values.hsCode
-                        ) {
+                        if (suggestions.hsCode.length > 0 && values.hsCode) {
                           setVisibleSuggestions((prev) => ({
                             ...prev,
                             hsCode: true,
@@ -1280,11 +1289,7 @@ const BookingRequest = ({
                     items={suggestions.hsCode}
                     visible={visibleSuggestions.hsCode}
                     onSelect={(item) =>
-                      handleSuggestionSelect(
-                        "hsCode",
-                        item,
-                        setFieldValue
-                      )
+                      handleSuggestionSelect("hsCode", item, setFieldValue)
                     }
                     fieldName="hsCode"
                     loading={loading.hsCode}
@@ -1321,7 +1326,6 @@ const BookingRequest = ({
                             label: "HS Code Name",
                             required: true,
                           },
-          
                         ],
                       });
                       setShowModal(true);
@@ -1624,18 +1628,27 @@ const BookingRequest = ({
                 </div>
               </div>
               {/* Add this inside your form for debugging */}
-<div className="row mt-3">
-  <div className="col-12">
-    <div className={`alert ${isValid ? 'alert-success' : 'alert-warning'}`}>
-      <strong>Form Status:</strong> {isValid ? 'VALID - Ready to Submit' : 'INVALID - Cannot Submit'}
-      {!isValid && (
-        <div className="mt-2">
-          <small>Check required fields and validation messages</small>
-        </div>
-      )}
-    </div>
-  </div>
-</div>
+              <div className="row mt-3">
+                <div className="col-12">
+                  <div
+                    className={`alert ${
+                      isValid ? "alert-success" : "alert-warning"
+                    }`}
+                  >
+                    <strong>Form Status:</strong>{" "}
+                    {isValid
+                      ? "VALID - Ready to Submit"
+                      : "INVALID - Cannot Submit"}
+                    {!isValid && (
+                      <div className="mt-2">
+                        <small>
+                          Check required fields and validation messages
+                        </small>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </Form>
           );
         }}

@@ -51,12 +51,13 @@ export const getCarriers = async (searchTerm) => {
   return res.data;
 };
 export const createShipper = async (data) => {
-  const res = await api.post("/shippers/", data);
+  console.log("Creating shipper with data:", data);
+  const res = await api.post("/users/", data);
   return res.data;
 };
 
 export const getShippers = async (searchTerm) => {
-  const res = await api.get(`/shippers?search=${searchTerm}`);
+  const res = await api.get(`/users?search=${searchTerm}`);
   return res.data;
 };
 export const createVessel = async (data) => {

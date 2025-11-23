@@ -159,7 +159,8 @@ function App() {
                 setModalConfig={setModalConfig}
                 onSubmit={(data, isValid) => handleFormSubmit(tab.id, data, isValid)}
                 initialData={formData[tab.id]}
-                modalResult={modalResult} 
+                modalResult={modalResult}
+                bookingRequestData={formData['booking-request']}
                 // onFormValidityChange={(isValid) => {
                 //   setCompletedTabs(prev => ({
                 //     ...prev,
