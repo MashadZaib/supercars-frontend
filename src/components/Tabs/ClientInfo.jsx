@@ -1,512 +1,621 @@
-import React from 'react'
-import { Formik, Form, Field, ErrorMessage } from 'formik'
-import StepHeading from '../Common/StepHeading'
-import { clientInfoSchema } from '../../schemas/validationSchemas'
+import React, { useEffect, useState } from "react";
+import { Formik, Form, Field, ErrorMessage } from "formik";
+import StepHeading from "../Common/StepHeading";
+import { clientInfoSchema } from "../../schemas/validationSchemas";
+import { useBooking } from "../../context/BookingContext";
+import { toast } from "react-toastify";
+import { createClient, updateClient, getClient } from "../../api/clientInfoApi";
+import { createLink } from "../../api/bookingRequestClientInfoApi";
+const AutoCompleteList = ({ items, onSelect, visible, fieldName, loading }) => {
+  if (!visible) return null;
 
-const ClientInfo = ({ setShowModal, setModalConfig, onSubmit, initialData, onFormValidityChange, modalResult = null  }) => {
+  return (
+    <ul
+      className="list-group position-absolute w-100 shadow-sm"
+      style={{
+        zIndex: 1000,
+        top: "100%",
+        maxHeight: "180px",
+        overflowY: "auto",
+      }}
+    >
+      {loading ? (
+        <li className="list-group-item text-center py-2">
+          <div
+            className="spinner-border spinner-border-sm me-2"
+            role="status"
+          ></div>
+          Searching...
+        </li>
+      ) : items.length > 0 ? (
+        items.map((item, index) => (
+          <li
+            key={index}
+            className="list-group-item list-group-item-action py-2"
+            style={{ cursor: "pointer" }}
+            onClick={() => onSelect(item)}
+          >
+             <>
+                <strong>{item.name}</strong>
+                {item.address && (
+                  <small className="text-muted d-block">{item.address}</small>
+                )}
+              </>
+
+            {item.type && (
+              <span className="text-muted ms-2">({item.type})</span>
+            )}
+          </li>
+        ))
+      ) : (
+        <li className="list-group-item text-muted py-2">No results found</li>
+      )}
+    </ul>
+  );
+};
+const ClientInfo = ({
+  setShowModal,
+  setModalConfig,
+  onSubmit,
+  initialData,
+  onFormValidityChange,
+  modalResult = null,
+}) => {
   const initialValues = {
-    date: new Date().toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
+    id: initialData?.id || null,
+    date: new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
     }),
-    methodSent: '',
-    client: '',
-    companyRegistrationNo: '',
-    taxId: '',
-    companyVatNo: '',
-    contactPerson: '',
-    phone: '',
-    email: '',
-    billingAddress: '',
-    shippingAddress: '',
-    country: '',
-    city: '',
-    postalCode: '',
-    paymentTerms: '',
-    currency: 'USD'
-  }
+    methodSent: initialData?.methodSent,
+    client: initialData?.client,
+    companyRegistrationNo: initialData?.companyRegistrationNo,
+    taxId: initialData?.taxId,
+    companyVatNo: initialData?.companyVatNo,
+    contactPerson: initialData?.contactPerson,
+    phone: initialData?.phone,
+    email: initialData?.email,
+    address: initialData?.address,
+  };
+  const [clients, setClients] = useState([]);
+  const [suggestions, setSuggestions] = useState({
+    client: [],
+  });
+  const [selectedItems, setSelectedItems] = useState({
+    client: null,
+  });
 
-  const handleSubmit = (values, { setSubmitting }) => {
-    console.log('Client Information Data:', values)
-    if (onSubmit) {
-      onSubmit(values, true)
+  const [visibleSuggestions, setVisibleSuggestions] = useState({
+    client: false,
+  });
+  const [loading, setLoading] = useState({
+    client: false,
+  });
+  const [validatedValues, setValidatedValues] = useState({
+    client: false,
+  });
+  const validateAutocompleteField = (fieldName, value, suggestions) => {
+    if (!value) return `${fieldName} is required`;
+
+    // Check if the value exists in the suggestions (case insensitive)
+    const exists = suggestions.some((item) => {
+      const text =
+        item.addrees ||
+        item.name ||
+        "";
+
+      return text.toLowerCase() === value.toLowerCase();
+    });
+
+    if (!exists)
+      return `Please select a valid ${fieldName} from the suggestions`;
+
+    return null;
+  };
+
+  const validateFieldInRealTime = (fieldName, value, currentSuggestions) => {
+    if (!value) {
+      setValidatedValues((prev) => ({ ...prev, [fieldName]: false }));
+      return false;
     }
-    setSubmitting(false)
-  }
 
-  const countries = [
-    'United States',
-    'United Kingdom',
-    'Canada',
-    'Australia',
-    'Germany',
-    'France',
-    'Japan',
-    'China',
-    'UAE',
-    'Saudi Arabia',
-    'Other'
-  ]
+    const exists = currentSuggestions.some((item) => {
+      const text =
+        item.addrees || // cargo description
+        item.name || // carrier / vessel
+        "";
 
-  const paymentTermsOptions = [
-    'Net 15',
-    'Net 30',
-    'Net 45',
-    'Net 60',
-    'Due on Receipt',
-    '50% Advance, 50% on Delivery',
-    'Custom'
-  ]
+      return text.toLowerCase() === value.toLowerCase();
+    });
 
-  const currencyOptions = [
-    'USD - US Dollar',
-    'EUR - Euro',
-    'GBP - British Pound',
-    'JPY - Japanese Yen',
-    'CAD - Canadian Dollar',
-    'AUD - Australian Dollar',
-    'CNY - Chinese Yuan'
-  ]
+    setValidatedValues((prev) => ({ ...prev, [fieldName]: exists }));
+    return exists;
+  };
+
+  const handleSubmit = async (
+    values,
+    { setSubmitting, resetForm, setErrors }
+  ) => {
+    console.log("Form Values on Submit:", values); // Debug all values
+    const errors = {};
+
+    if (!bookingId) {
+      toast.error("❌ Please save a Booking Request first!");
+      setSubmitting(false);
+      return;
+    }
+
+    const clientError = validateAutocompleteField(
+      "Client",
+      values.client,
+      suggestions.client
+    );
+    if (clientError) errors.client = clientError;
+
+    if (Object.keys(errors).length > 0) {
+      setErrors(errors);
+      toast.error("Please fix the validation errors before submitting");
+      setSubmitting(false);
+      return;
+    }
+
+    try {
+      const formatted = {
+        booking_request_id: bookingId,
+        client_info_id: values.client_info_id,
+        method_type: values.methodSent,        // dropdown value
+        entry_date: new Date().toISOString().split("T")[0]
+      };
+
+      let response;
+      if (!values.id) {
+        // ✅ Update
+        response = await createLink(formatted);
+        toast.success("Client info saved successfully!");
+      }
+
+      if (onSubmit) onSubmit(response, true);
+      resetForm({ values: { ...values, ...response } });
+    } catch (err) {
+      console.error("❌ Error saving booking confirmation:", err);
+      toast.error("Something went wrong while saving!");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const handleSearchClient = async (term, fromButton = false) => {
+      if (!term.trim()) {
+        setSuggestions((prev) => ({ ...prev, client: [] }));
+        setVisibleSuggestions((prev) => ({ ...prev, client: false }));
+        setValidatedValues((prev) => ({ ...prev, client: false }));
+        return;
+      }
+  
+      try {
+        setLoading((prev) => ({ ...prev, client: true }));
+        setVisibleSuggestions((prev) => ({ ...prev, client: true }));
+  
+        const data = await getClients(term); // FIXED
+        const filtered = (data || []).filter((u) => u.role === "client"); // ONLY SHIPPERS
+  
+        setSuggestions((prev) => ({ ...prev, client: filtered }));
+  
+        validateFieldInRealTime("client", term, filtered);
+      } catch {
+        setSuggestions((prev) => ({ ...prev, client: [] }));
+        setValidatedValues((prev) => ({ ...prev, client: false }));
+      } finally {
+        setLoading((prev) => ({ ...prev, client: false }));
+      }
+  };
+  const handleInputChange = (
+    fieldName,
+    value,
+    setFieldValue,
+    searchFunction
+  ) => {
+    setFieldValue(fieldName, value);
+
+    // Clear the ID when user starts typing
+    const selectedText =
+      selectedItems[fieldName]?.name ||
+      selectedItems[fieldName]?.address ||
+      "";
+
+    if (value.trim().toLowerCase() !== selectedText.trim().toLowerCase()) {
+      setFieldValue(`${fieldName}Id`, "");
+      setSelectedItems((prev) => ({ ...prev, [fieldName]: null }));
+    }
+
+    // Real-time validation against current suggestions
+    const isValid = validateFieldInRealTime(
+      fieldName,
+      value,
+      suggestions[fieldName]
+    );
+
+    if (value.length >= 1) {
+      searchFunction(value);
+    } else {
+      setVisibleSuggestions((prev) => ({ ...prev, [fieldName]: false }));
+      if (value.length > 0 && !isValid) {
+        setValidatedValues((prev) => ({ ...prev, [fieldName]: false }));
+      }
+    }
+  };
+    useEffect(() => {
+      if (!modalResult) return;
+  
+      const handleModalResult = async () => {
+        try {
+          if (modalResult.title === "Create New Client") {
+
+            const newClient = await createClient(modalResult.data);
+            setClients((prev) => [newClient, ...prev]);
+            setSuggestions((prev) => ({
+              ...prev,
+              client: [newClient, ...prev.client],
+            }));
+            toast.success(`Client Information "${newClient.name}" added!`);
+          }
+        } catch (err) {
+          console.error("Error creating record:", err);
+          toast.error("Failed to add record");
+        } finally {
+          setShowModal(false);
+        }
+      };
+  
+      handleModalResult();
+    }, [modalResult]);
+
 
   return (
     <>
-      <StepHeading 
-        title="Client Information" 
-        description="Enter the client details for invoice generation" 
+      <StepHeading
+        title="Client Information"
+        description="Enter the client details for invoice generation"
       />
 
-     <Formik
-         initialValues={initialData && Object.keys(initialData).length ? initialData : initialValues}
-         validationSchema={clientInfoSchema}
-         onSubmit={(values, { setSubmitting }) => {
-           onSubmit(values, true)
-           setSubmitting(false)
-         }}
-         validateOnMount
-         //enableReinitialize={!!initialData} // ✅ only reinitialize when real data exists
-       >
-      {({ isSubmitting, isValid, touched, values, errors }) => {
-        React.useEffect(() => {
-          if (onFormValidityChange) onFormValidityChange(isValid);
-        }, [isValid]);
-        return (
-          <Form>
-            {/* Date and Method Sent */}
-            <div className="row mb-3">
-              <div className="col-md-6">
-                <label htmlFor="date" className="form-label">
-                  Date <span className="text-danger">*</span>
-                </label>
-                <Field 
-                  type="text" 
-                  name="date"
-                  className={`form-control ${touched.date && errors.date ? 'is-invalid' : ''}`}
-                  readOnly 
-                />
-                <ErrorMessage name="date" component="div" className="text-danger small mt-1" />
-              </div>
-              <div className="col-md-6">
-                <label htmlFor="methodSent" className="form-label">
-                  Method Sent <span className="text-danger">*</span>
-                </label>
-                <Field 
-                  as="select" 
-                  name="methodSent" 
-                  className={`form-select ${touched.methodSent && errors.methodSent ? 'is-invalid' : ''}`}
-                >
-                  <option value="">Select Method</option>
-                  <option value="Email">Email</option>
-                  <option value="WhatsApp">WhatsApp</option>
-                  <option value="Verbal">Verbal</option>
-                  <option value="In Person">In Person</option>
-                  <option value="Post">Post</option>
-                  <option value="Other">Other</option>
-                </Field>
-                <ErrorMessage name="methodSent" component="div" className="text-danger small mt-1" />
-              </div>
-            </div>
-
-            {/* Client Search */}
-            <div className="row mb-3">
-              <div className="col-md-6">
-                <label htmlFor="client" className="form-label">
-                  Client Name & Address <span className="text-danger">*</span>
-                </label>
-                <div className="input-group">
-                  <Field 
-                    type="text" 
-                    name="client"
-                    className={`form-control ${touched.client && errors.client ? 'is-invalid' : ''}`}
-                    placeholder="Search Clients Name & Address" 
+      <Formik
+        initialValues={initialValues}
+        validationSchema={clientInfoSchema}
+        onSubmit={handleSubmit}
+        validateOnMount
+        enableReinitialize
+      >
+        {({ isSubmitting, isValid, touched, values, errors }) => {
+         useEffect(() => {
+                    console.log("=== FORM VALIDATION DEBUG ===");
+                    console.log("Is Form Valid?", isValid);
+                    console.log("All Errors:", errors);
+                    console.log("All Touched Fields:", touched);
+                    console.log("Current Values:", values);
+                    console.log("=== END DEBUG ===");
+        
+                    if (onFormValidityChange) onFormValidityChange(isValid);
+                  }, [isValid, errors, touched, values]);
+          return (
+            <Form>
+              {/* Date and Method Sent */}
+              <div className="row mb-3">
+                <div className="col-md-6">
+                  <label htmlFor="date" className="form-label">
+                    Date <span className="text-danger">*</span>
+                  </label>
+                  <Field
+                    type="text"
+                    name="date"
+                    className={`form-control ${
+                      touched.date && errors.date ? "is-invalid" : ""
+                    }`}
+                    readOnly
                   />
-                  <button className="btn btn-outline-secondary" type="button">
-                    <i className="fas fa-search"></i>
+                  <ErrorMessage
+                    name="date"
+                    component="div"
+                    className="text-danger small mt-1"
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label htmlFor="methodSent" className="form-label">
+                    Method Sent <span className="text-danger">*</span>
+                  </label>
+                  <Field
+                    as="select"
+                    name="methodSent"
+                    className={`form-select ${
+                      touched.methodSent && errors.methodSent
+                        ? "is-invalid"
+                        : ""
+                    }`}
+                  >
+                    <option value="">Select Method</option>
+                    <option value="Email">Email</option>
+                    <option value="WhatsApp">WhatsApp</option>
+                    <option value="Verbal">Verbal</option>
+                    <option value="In Person">In Person</option>
+                    <option value="Post">Post</option>
+                    <option value="Other">Other</option>
+                  </Field>
+                  <ErrorMessage
+                    name="methodSent"
+                    component="div"
+                    className="text-danger small mt-1"
+                  />
+                </div>
+              </div>
+
+              {/* Client Search */}
+              <div className="row mb-3">
+                   <div className="col-md-6 position-relative">
+                  <label htmlFor="client" className="form-label">
+                    Client Name & Address <span className="text-danger">*</span>
+                  </label>
+                  <div className="input-group">
+                    <Field
+                      type="text"
+                      name="client"
+                      className={`form-control ${
+                        touched.client && errors.client ? "is-invalid" : ""
+                      }`}
+                      placeholder="Search Clients Name & Address"
+                      onChange={(e) => {
+                        handleInputChange(
+                          "client",
+                          e.target.value,
+                          setFieldValue,
+                          handleSearchClient
+                        );
+                      }}
+                      onFocus={() => {
+                        if (suggestions.client.length > 0 && values.client) {
+                          setVisibleSuggestions((prev) => ({
+                            ...prev,
+                            client: true,
+                          }));
+                        }
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => {
+                          setVisibleSuggestions((prev) => ({
+                            ...prev,
+                            client: false,
+                          }));
+                        }, 200);
+                      }}
+                      autoComplete="off"
+                    />
+                    
+                    <button
+                        type="button"
+                        className="btn btn-outline-secondary"
+                        onClick={() => {
+                          const v = values.client;
+                          if (v) {
+                            handleSearchClient(v, true);
+                          } else {
+                            toast.warning("Please enter a search term first");
+                          }
+                        }}
+                        disabled={loading.client}
+                      >
+                        {loading.client ? (
+                          <i className="fas fa-spinner fa-spin"></i>
+                        ) : (
+                          <i className="fas fa-search"></i>
+                        )}
+                      </button>
+                    </div>
+                    <Field type="hidden" name="client_info_id" />
+                      <AutoCompleteList
+                    items={suggestions.client}
+                    visible={visibleSuggestions.client}
+                    fieldName="client"
+                    loading={loading.client}
+                    onSelect={(item) =>
+                      handleSuggestionSelect("client", item, setFieldValue)
+                    }
+                  />
+                  </div>
+                  <ErrorMessage
+                    name="client"
+                    component="div"
+                    className="text-danger small mt-1"
+                  />
+                </div>
+                <div className="col-md-6 text-end">
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setModalConfig({
+                        title: "Create New Client",
+                        fields: [
+                          {
+                            name: "clientName",
+                            label: "Client Name",
+                            required: true,
+                          },
+                          {
+                            name: "clientCompanyRegistrationNo",
+                            label: "Company Registration No",
+                          },
+                          { name: "clientTaxID", label: "Tax ID" },
+                          {
+                            name: "clientCompanyVatNo",
+                            label: "Company VAT No",
+                          },
+                          {
+                            name: "clientContactPerson",
+                            label: "ContactPerson",
+                          },
+                          { name: "clientPhone", label: "Phone" },
+                          {
+                            type: "email",
+                            name: "clientEmail",
+                            label: "Client Email",
+                          },
+                          {
+                            type: "textarea",
+                            name: "clientAddress",
+                            label: "Client Address",
+                            required: true,
+                          },
+                        ],
+                      });
+                      setShowModal(true);
+                    }}
+                  >
+                    <i className="fas fa-plus"></i> Create New
                   </button>
                 </div>
-                <ErrorMessage name="client" component="div" className="text-danger small mt-1" />
-              </div>
-              <div className="col-md-6 text-end">
-              <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => {
-                    setModalConfig({
-                      title: 'Create New Client',
-                      fields: [
-                        { name: 'clientName', label: 'Client Name', required: true }, 
-                        { type: "textarea", name: 'clientAddress', label: 'Client Address', required: true }                     
-                      ]
-                    })
-                    setShowModal(true)
-                  }}
-                >
-                  <i className="fas fa-plus"></i> Create New
-                </button>
-              </div>
-            </div>
-
-            {/* Company Information */}
-            <div className="card mb-4">
-              <div className="card-header bg-light">
-                <h6 className="mb-0">Company Information</h6>
-              </div>
-              <div className="card-body">
-                <div className="row mb-3">
-                  <div className="col-md-4">
-                    <label htmlFor="companyRegistrationNo" className="form-label">
-                      Company Registration No
-                    </label>
-                    <Field 
-                      type="text" 
-                      name="companyRegistrationNo"
-                      className="form-control"
-                      placeholder="Enter Company Registration No" 
-                    />
-                  </div>
-                  <div className="col-md-4">
-                    <label htmlFor="taxId" className="form-label">
-                      Tax ID
-                    </label>
-                    <Field 
-                      type="text" 
-                      name="taxId"
-                      className="form-control"
-                      placeholder="Enter Tax ID" 
-                    />
-                  </div>
-                  <div className="col-md-4">
-                    <label htmlFor="companyVatNo" className="form-label">
-                      Company VAT No
-                    </label>
-                    <Field 
-                      type="text" 
-                      name="companyVatNo"
-                      className="form-control"
-                      placeholder="Enter Company VAT No" 
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Contact Information */}
-            <div className="card mb-4">
-              <div className="card-header bg-light">
-                <h6 className="mb-0">Contact Information</h6>
-              </div>
-              <div className="card-body">
-                <div className="row mb-3">
-                  <div className="col-md-6">
-                    <label htmlFor="contactPerson" className="form-label">
-                      Contact Person
-                    </label>
-                    <Field 
-                      type="text" 
-                      name="contactPerson"
-                      className="form-control"
-                      placeholder="Enter contact name" 
-                    />
-                  </div>
-                  <div className="col-md-6">
-                    <label htmlFor="phone" className="form-label">
-                      Phone
-                    </label>
-                    <Field 
-                      type="text" 
-                      name="phone"
-                      className={`form-control ${touched.phone && errors.phone ? 'is-invalid' : ''}`}
-                      placeholder="Enter Phone Number" 
-                    />
-                    <ErrorMessage name="phone" component="div" className="text-danger small mt-1" />
-                  </div>
-                </div>
-                <div className="row mb-3">
-                  <div className="col-md-6">
-                    <label htmlFor="email" className="form-label">
-                      Email
-                    </label>
-                    <Field 
-                      type="email" 
-                      name="email"
-                      className={`form-control ${touched.email && errors.email ? 'is-invalid' : ''}`}
-                      placeholder="Enter Email Address" 
-                    />
-                    <ErrorMessage name="email" component="div" className="text-danger small mt-1" />
-                  </div>
-                  {/* <div className="col-md-6">
-                    <label htmlFor="currency" className="form-label">
-                      Preferred Currency
-                    </label>
-                    <Field 
-                      as="select" 
-                      name="currency" 
-                      className="form-select"
-                    >
-                      {currencyOptions.map(currency => (
-                        <option key={currency} value={currency}>{currency}</option>
-                      ))}
-                    </Field>
-                  </div> */}
-                </div>
-              </div>
-            </div>
-
-            {/* Address Information */}
-            {/* <div className="card mb-4">
-              <div className="card-header bg-light">
-                <h6 className="mb-0">Address Information</h6>
-              </div>
-              <div className="card-body">
-                <div className="row mb-3">
-                  <div className="col-md-12">
-                    <label htmlFor="billingAddress" className="form-label">
-                      Billing Address
-                    </label>
-                    <Field 
-                      as="textarea" 
-                      name="billingAddress"
-                      className="form-control"
-                      rows="3"
-                      placeholder="Enter complete billing address" 
-                    />
-                  </div>
-                </div>
-                <div className="row mb-3">
-                  <div className="col-md-12">
-                    <label htmlFor="shippingAddress" className="form-label">
-                      Shipping Address
-                    </label>
-                    <Field 
-                      as="textarea" 
-                      name="shippingAddress"
-                      className="form-control"
-                      rows="3"
-                      placeholder="Enter complete shipping address (if different from billing)" 
-                    />
-                  </div>
-                </div>
-                <div className="row mb-3">
-                  <div className="col-md-4">
-                    <label htmlFor="country" className="form-label">
-                      Country
-                    </label>
-                    <Field 
-                      as="select" 
-                      name="country" 
-                      className="form-select"
-                    >
-                      <option value="">Select Country</option>
-                      {countries.map(country => (
-                        <option key={country} value={country}>{country}</option>
-                      ))}
-                    </Field>
-                  </div>
-                  <div className="col-md-4">
-                    <label htmlFor="city" className="form-label">
-                      City
-                    </label>
-                    <Field 
-                      type="text" 
-                      name="city"
-                      className="form-control"
-                      placeholder="Enter City" 
-                    />
-                  </div>
-                  <div className="col-md-4">
-                    <label htmlFor="postalCode" className="form-label">
-                      Postal Code
-                    </label>
-                    <Field 
-                      type="text" 
-                      name="postalCode"
-                      className="form-control"
-                      placeholder="Enter Postal Code" 
-                    />
-                  </div>
-                </div>
-              </div>
-            </div> */}
-
-            {/* Payment Information */}
-            {/* <div className="card mb-4">
-              <div className="card-header bg-light">
-                <h6 className="mb-0">Payment Information</h6>
-              </div>
-              <div className="card-body">
-                <div className="row mb-3">
-                  <div className="col-md-6">
-                    <label htmlFor="paymentTerms" className="form-label">
-                      Payment Terms
-                    </label>
-                    <Field 
-                      as="select" 
-                      name="paymentTerms" 
-                      className="form-select"
-                    >
-                      <option value="">Select Payment Terms</option>
-                      {paymentTermsOptions.map(term => (
-                        <option key={term} value={term}>{term}</option>
-                      ))}
-                    </Field>
-                  </div>
-                  <div className="col-md-6">
-                    <label htmlFor="creditLimit" className="form-label">
-                      Credit Limit (Optional)
-                    </label>
-                    <Field 
-                      type="number" 
-                      name="creditLimit"
-                      className="form-control"
-                      placeholder="Enter Credit Limit" 
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div> */}
-
-            {/* Additional Notes */}
-            <div className="card mb-4">
-              <div className="card-header bg-light">
-                <h6 className="mb-0">Additional Notes</h6>
-              </div>
-              <div className="card-body">
-                <div className="row mb-3">
-                  <div className="col-md-12">
-                    <label htmlFor="additionalNotes" className="form-label">
-                      Notes & Comments
-                    </label>
-                    <Field 
-                      as="textarea" 
-                      name="additionalNotes"
-                      className="form-control"
-                      rows="4"
-                      placeholder="Enter any additional notes or comments about the client..." 
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Client Status */}
-            {/* <div className="card mb-4">
-              <div className="card-header bg-light">
-                <h6 className="mb-0">Client Status</h6>
-              </div>
-              <div className="card-body">
-                <div className="row mb-3">
-                  <div className="col-md-4">
-                    <label className="form-label">Client Type</label>
-                    <div>
-                      <div className="form-check form-check-inline">
-                        <Field 
-                          type="radio" 
-                          name="clientType"
-                          className="form-check-input"
-                          value="Individual"
-                        />
-                        <label className="form-check-label">Individual</label>
-                      </div>
-                      <div className="form-check form-check-inline">
-                        <Field 
-                          type="radio" 
-                          name="clientType"
-                          className="form-check-input"
-                          value="Company"
-                        />
-                        <label className="form-check-label">Company</label>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-md-4">
-                    <label className="form-label">Status</label>
-                    <div>
-                      <div className="form-check form-check-inline">
-                        <Field 
-                          type="radio" 
-                          name="clientStatus"
-                          className="form-check-input"
-                          value="Active"
-                        />
-                        <label className="form-check-label">Active</label>
-                      </div>
-                      <div className="form-check form-check-inline">
-                        <Field 
-                          type="radio" 
-                          name="clientStatus"
-                          className="form-check-input"
-                          value="Inactive"
-                        />
-                        <label className="form-check-label">Inactive</label>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-md-4">
-                    <label htmlFor="clientSince" className="form-label">
-                      Client Since
-                    </label>
-                    <Field 
-                      type="date" 
-                      name="clientSince"
-                      className="form-control"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div> */}
-
-            {/* Form Actions */}
-            <div className="row mt-4">
-              <div className="col-md-12">
-                <div className="d-flex justify-content-end">
-                
-                  <div>
-                   
-                    <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-                      {isSubmitting ? (
-                        <>
-                          <i className="fas fa-spinner fa-spin me-1"></i> Saving...
-                        </>
-                      ) : (
-                        <>
-                          <i className="fas fa-save me-1"></i> Save Client Information
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             
-          </Form>
-        );
+
+              {/* Company Information */}
+              <div className="card mb-4">
+                <div className="card-header bg-light">
+                  <h6 className="mb-0">Company Information</h6>
+                </div>
+                <div className="card-body">
+                  <div className="row mb-3">
+                    <div className="col-md-4">
+                      <label
+                        htmlFor="companyRegistrationNo"
+                        className="form-label"
+                      >
+                        Company Registration No
+                      </label>
+                      <Field
+                        readOnly
+                        type="text"
+                        name="companyRegistrationNo"
+                        className="form-control"
+                        placeholder="Enter Company Registration No"
+                      />
+                    </div>
+                    <div className="col-md-4">
+                      <label htmlFor="taxId" className="form-label">
+                        Tax ID
+                      </label>
+                      <Field
+                        type="text"
+                        name="taxId"
+                        className="form-control"
+                        placeholder="Enter Tax ID"
+                      />
+                    </div>
+                    <div className="col-md-4">
+                      <label htmlFor="companyVatNo" className="form-label">
+                        Company VAT No
+                      </label>
+                      <Field
+                        readOnly
+                        type="text"
+                        name="companyVatNo"
+                        className="form-control"
+                        placeholder="Enter Company VAT No"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact Information */}
+              <div className="card mb-4">
+                <div className="card-header bg-light">
+                  <h6 className="mb-0">Contact Information</h6>
+                </div>
+                <div className="card-body">
+                  <div className="row mb-3">
+                    <div className="col-md-6">
+                      <label htmlFor="contactPerson" className="form-label">
+                        Contact Person
+                      </label>
+                      <Field
+                        readOnly
+                        type="text"
+                        name="contactPerson"
+                        className="form-control"
+                        placeholder="Enter contact name"
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label htmlFor="phone" className="form-label">
+                        Phone
+                      </label>
+                      <Field
+                        readOnly
+                        type="text"
+                        name="phone"
+                        className={`form-control ${
+                          touched.phone && errors.phone ? "is-invalid" : ""
+                        }`}
+                        placeholder="Enter Phone Number"
+                      />
+                      <ErrorMessage
+                        name="phone"
+                        component="div"
+                        className="text-danger small mt-1"
+                      />
+                    </div>
+                  </div>
+                  <div className="row mb-3">
+                    <div className="col-md-6">
+                      <label htmlFor="email" className="form-label">
+                        Email
+                      </label>
+                      <Field
+                        readOnly
+                        type="email"
+                        name="email"
+                        className={`form-control ${
+                          touched.email && errors.email ? "is-invalid" : ""
+                        }`}
+                        placeholder="Enter Email Address"
+                      />
+                      <ErrorMessage
+                        name="email"
+                        component="div"
+                        className="text-danger small mt-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Form Actions */}
+              <div className="row mt-4">
+                <div className="col-md-12">
+                  <div className="d-flex justify-content-end">
+                    <div>
+                      <button
+                        type="submit"
+                        className="btn btn-primary"
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <i className="fas fa-spinner fa-spin me-1"></i>{" "}
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <i className="fas fa-save me-1"></i> Save Client
+                            Information
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Form>
+          );
         }}
       </Formik>
     </>
   );
 };
 
-export default ClientInfo
+export default ClientInfo;

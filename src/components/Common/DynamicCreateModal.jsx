@@ -56,11 +56,14 @@ const DynamicCreateModal = ({
   if (!show) return null;
 
   // ✅ Merge visible + hidden fields with initial values
-  const formInitialValues = fields.reduce((acc, f) => {
-    // Use value from props or default empty string
-    acc[f.name] = f.value ?? initialValues[f.name] ?? "";
-    return acc;
-  }, { ...initialValues });
+  const formInitialValues = fields.reduce(
+    (acc, f) => {
+      // Use value from props or default empty string
+      acc[f.name] = f.value ?? initialValues[f.name] ?? "";
+      return acc;
+    },
+    { ...initialValues }
+  );
 
   return ReactDOM.createPortal(
     <div className="modal fade show" style={{ display: "block" }}>
@@ -68,7 +71,11 @@ const DynamicCreateModal = ({
         <div className="modal-content">
           <div className="modal-header">
             <h5 className="modal-title">{title || "Create New Item"}</h5>
-            <button type="button" className="btn-close" onClick={onHide}></button>
+            <button
+              type="button"
+              className="btn-close"
+              onClick={onHide}
+            ></button>
           </div>
 
           {/* ✅ Formik integration */}
@@ -84,7 +91,14 @@ const DynamicCreateModal = ({
           >
             {({ isSubmitting }) => (
               <Form>
-                <div className="modal-body">
+                <div
+                  className="modal-body"
+                  style={{
+                    maxHeight: "60vh",
+                    overflowY: "auto",
+                    paddingRight: "10px",
+                  }}
+                >
                   {fields.map((field) => {
                     // Hidden fields
                     if (field.hidden) {
@@ -145,7 +159,8 @@ const DynamicCreateModal = ({
                   >
                     {isSubmitting ? (
                       <>
-                        <i className="fas fa-spinner fa-spin me-1"></i> Creating...
+                        <i className="fas fa-spinner fa-spin me-1"></i>{" "}
+                        Creating...
                       </>
                     ) : (
                       <>

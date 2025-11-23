@@ -582,9 +582,7 @@ const BookingRequest = ({
           errors,
           setFieldValue,
         }) => {
-          // useEffect(() => {
-          //   if (onFormValidityChange) onFormValidityChange(isValid);
-          // }, [isValid]);
+        
 
           useEffect(() => {
             console.log("=== FORM VALIDATION DEBUG ===");
@@ -1627,28 +1625,7 @@ const BookingRequest = ({
                   </div>
                 </div>
               </div>
-              {/* Add this inside your form for debugging */}
-              <div className="row mt-3">
-                <div className="col-12">
-                  <div
-                    className={`alert ${
-                      isValid ? "alert-success" : "alert-warning"
-                    }`}
-                  >
-                    <strong>Form Status:</strong>{" "}
-                    {isValid
-                      ? "VALID - Ready to Submit"
-                      : "INVALID - Cannot Submit"}
-                    {!isValid && (
-                      <div className="mt-2">
-                        <small>
-                          Check required fields and validation messages
-                        </small>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+             
             </Form>
           );
         }}

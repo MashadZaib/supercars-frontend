@@ -164,16 +164,15 @@ const BookingConfirmation = ({
     if (!value) return `${fieldName} is required`;
 
     // Check if the value exists in the suggestions (case insensitive)
-const exists = suggestions.some((item) => {
-  const text =
-    item.username ||    // shipper
-    item.description || // cargo description
-    item.name ||        // carrier / vessel / container sizes
-    "";
+    const exists = suggestions.some((item) => {
+      const text =
+        item.username || // shipper
+        item.description || // cargo description
+        item.name || // carrier / vessel / container sizes
+        "";
 
-  return text.toLowerCase() === value.toLowerCase();
-});
-
+      return text.toLowerCase() === value.toLowerCase();
+    });
 
     if (!exists)
       return `Please select a valid ${fieldName} from the suggestions`;
@@ -181,25 +180,25 @@ const exists = suggestions.some((item) => {
     return null;
   };
 
-const validateFieldInRealTime = (fieldName, value, currentSuggestions) => {
-  if (!value) {
-    setValidatedValues((prev) => ({ ...prev, [fieldName]: false }));
-    return false;
-  }
+  const validateFieldInRealTime = (fieldName, value, currentSuggestions) => {
+    if (!value) {
+      setValidatedValues((prev) => ({ ...prev, [fieldName]: false }));
+      return false;
+    }
 
-  const exists = currentSuggestions.some((item) => {
-    const text =
-      item.username ||    // shipper
-      item.description || // cargo description
-      item.name ||        // carrier / vessel
-      "";
+    const exists = currentSuggestions.some((item) => {
+      const text =
+        item.username || // shipper
+        item.description || // cargo description
+        item.name || // carrier / vessel
+        "";
 
-    return text.toLowerCase() === value.toLowerCase();
-  });
+      return text.toLowerCase() === value.toLowerCase();
+    });
 
-  setValidatedValues((prev) => ({ ...prev, [fieldName]: exists }));
-  return exists;
-};
+    setValidatedValues((prev) => ({ ...prev, [fieldName]: exists }));
+    return exists;
+  };
 
   const handleSubmit = async (
     values,
@@ -253,20 +252,20 @@ const validateFieldInRealTime = (fieldName, value, currentSuggestions) => {
     try {
       const formatted = {
         booking_request_id: bookingId,
-        carrier_id: values.carrier,
+        carrier_id: values.carrierId,
         rates_confirmed: values.ratesConfirmed,
         booking_confirmation_no: values.bookingConfirmationNo,
         booking_date: values.bookingDate,
-        shipper_id: values.shipper,
-        port_of_load_id: values.portOfLoad,
-        port_of_discharge_id: values.portOfDischarge,
-        vessel_id: values.vessel,
+        shipper_id: values.shipperId,
+        port_of_load_id: values.portOfLoadId,
+        port_of_discharge_id: values.portOfDischargeId,
+        vessel_id: values.vesselId,
         voyage: values.voyage,
-        container_size_id: values.containerSize,
+        container_size_id: values.containerSizeId,
         quantity: values.quantity,
         weight_kg: values.weightKg,
         cy_cfs: values.cyCfs,
-        hs_code_id: values.hsCode,
+        hs_code_id: values.hsCodeId,
         cargo_description_id: values.cargoDescriptionId,
         special_instructions: values.specialInstructions,
         additional_remarks: values.additionalRemarks,
@@ -329,11 +328,12 @@ const validateFieldInRealTime = (fieldName, value, currentSuggestions) => {
       setLoading((prev) => ({ ...prev, shipper: true }));
       setVisibleSuggestions((prev) => ({ ...prev, shipper: true }));
 
-      const data = await getShippers(term + "&role=shipper");
+      const data = await getShippers(term); // FIXED
+      const filtered = (data || []).filter((u) => u.role === "shipper"); // ONLY SHIPPERS
 
-      setSuggestions((prev) => ({ ...prev, shipper: data || [] }));
+      setSuggestions((prev) => ({ ...prev, shipper: filtered }));
 
-      validateFieldInRealTime("shipper", term, data || []);
+      validateFieldInRealTime("shipper", term, filtered);
     } catch {
       setSuggestions((prev) => ({ ...prev, shipper: [] }));
       setValidatedValues((prev) => ({ ...prev, shipper: false }));
@@ -392,7 +392,7 @@ const validateFieldInRealTime = (fieldName, value, currentSuggestions) => {
 
   // ✅ Handle selection from autocomplete - store both name and ID
   const handleSuggestionSelect = (fieldName, item, setFieldValue) => {
-  const value = item.username || item.description || item.name || "";
+    const value = item.username || item.description || item.name || "";
 
     const id = item.id;
 
@@ -418,7 +418,13 @@ const validateFieldInRealTime = (fieldName, value, currentSuggestions) => {
     setFieldValue(fieldName, value);
 
     // Clear the ID when user starts typing
-    if (value !== selectedItems[fieldName]?.name) {
+    const selectedText =
+      selectedItems[fieldName]?.username ||
+      selectedItems[fieldName]?.description ||
+      selectedItems[fieldName]?.name ||
+      "";
+
+    if (value.trim().toLowerCase() !== selectedText.trim().toLowerCase()) {
       setFieldValue(`${fieldName}Id`, "");
       setSelectedItems((prev) => ({ ...prev, [fieldName]: null }));
     }
@@ -458,14 +464,12 @@ const validateFieldInRealTime = (fieldName, value, currentSuggestions) => {
         } else if (modalResult.title === "Create New Shipper Name") {
           const randomPassword = Math.random().toString(36).slice(-10);
 
-
-
           const payload = {
             username: modalResult.data.username,
             email: modalResult.data.email,
             address: modalResult.data.address,
             role: "shipper",
-            password:randomPassword
+            password: randomPassword,
           };
           const newShipper = await createShipper(payload);
           setShippers((prev) => [newShipper, ...prev]);
@@ -492,7 +496,7 @@ const validateFieldInRealTime = (fieldName, value, currentSuggestions) => {
           // Add only to portOfDischarge suggestions
           setSuggestions((prev) => ({
             ...prev,
-            cargoDescription: [newCargoDescription, ...prev.portOfDischarge],
+            cargoDescription: [newCargoDescription, ...prev.cargoDescription],
           }));
           toast.success(
             `Cargo Description "${newCargoDescription.name}" added!`
@@ -521,7 +525,7 @@ const validateFieldInRealTime = (fieldName, value, currentSuggestions) => {
         validationSchema={bookingConfirmationSchema}
         onSubmit={handleSubmit}
         validateOnMount
-        // enableReinitialize
+        enableReinitialize
       >
         {({
           isSubmitting,
@@ -742,80 +746,81 @@ const validateFieldInRealTime = (fieldName, value, currentSuggestions) => {
 
               {/* Shipper Details */}
               <div className="row mb-3">
-               <div className="col-md-6 position-relative">
-  <label htmlFor="shipper" className="form-label">
-    Shipper <span className="text-danger">*</span>
-  </label>
+                <div className="col-md-6 position-relative">
+                  <label htmlFor="shipper" className="form-label">
+                    Shipper <span className="text-danger">*</span>
+                  </label>
 
-  <div className="input-group">
-    <Field
-      type="text"
-      name="shipper"
-      placeholder="Search Shipper"
-      className={`form-control ${
-        (touched.shipper && errors.shipper) ||
-        (values.shipper && !validatedValues.shipper)
-          ? "is-invalid"
-          : ""
-      }`}
-      onChange={(e) => {
-        handleInputChange(
-          "shipper",
-          e.target.value,
-          setFieldValue,
-          handleSearchShipper
-        );
-      }}
-      onFocus={() => {
-        if (suggestions.shipper.length > 0 && values.shipper) {
-          setVisibleSuggestions((prev) => ({
-            ...prev,
-            shipper: true,
-          }));
-        }
-      }}
-      onBlur={() => {
-        setTimeout(() => {
-          setVisibleSuggestions((prev) => ({
-            ...prev,
-            shipper: false,
-          }));
-        }, 200);
-      }}
-      autoComplete="off"
-    />
+                  <div className="input-group">
+                    <Field
+                      type="text"
+                      name="shipper"
+                      placeholder="Search Shipper"
+                      className={`form-control ${
+                        (touched.shipper && errors.shipper) ||
+                        (values.shipper && !validatedValues.shipper)
+                          ? "is-invalid"
+                          : ""
+                      }`}
+                      onChange={(e) => {
+                        handleInputChange(
+                          "shipper",
+                          e.target.value,
+                          setFieldValue,
+                          handleSearchShipper
+                        );
+                      }}
+                      onFocus={() => {
+                        if (suggestions.shipper.length > 0 && values.shipper) {
+                          setVisibleSuggestions((prev) => ({
+                            ...prev,
+                            shipper: true,
+                          }));
+                        }
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => {
+                          setVisibleSuggestions((prev) => ({
+                            ...prev,
+                            shipper: false,
+                          }));
+                        }, 200);
+                      }}
+                      autoComplete="off"
+                    />
 
-    <button
-      type="button"
-      className="btn btn-outline-secondary"
-      onClick={() => {
-        const v = values.shipper;
-        if (v) {
-          handleSearchShipper(v, true);
-        } else {
-          toast.warning("Please enter a search term first");
-        }
-      }}
-      disabled={loading.shipper}
-    >
-      {loading.shipper ? (
-        <i className="fas fa-spinner fa-spin"></i>
-      ) : (
-        <i className="fas fa-search"></i>
-      )}
-    </button>
-  </div>
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={() => {
+                        const v = values.shipper;
+                        if (v) {
+                          handleSearchShipper(v, true);
+                        } else {
+                          toast.warning("Please enter a search term first");
+                        }
+                      }}
+                      disabled={loading.shipper}
+                    >
+                      {loading.shipper ? (
+                        <i className="fas fa-spinner fa-spin"></i>
+                      ) : (
+                        <i className="fas fa-search"></i>
+                      )}
+                    </button>
+                  </div>
+                  <Field type="hidden" name="shipperId" />
 
-  <AutoCompleteList
-    items={suggestions.shipper}
-    visible={visibleSuggestions.shipper}
-    fieldName="shipper"
-    loading={loading.shipper}
-    onSelect={(item) =>
-      handleSuggestionSelect("shipper", item, setFieldValue)
-    }
-  />
-</div>
+                  <AutoCompleteList
+                    items={suggestions.shipper}
+                    visible={visibleSuggestions.shipper}
+                    fieldName="shipper"
+                    loading={loading.shipper}
+                    onSelect={(item) =>
+                      handleSuggestionSelect("shipper", item, setFieldValue)
+                    }
+                  />
+                </div>
 
                 <div className="col-md-6 text-end">
                   <button
@@ -1292,6 +1297,7 @@ const validateFieldInRealTime = (fieldName, value, currentSuggestions) => {
                   </div>
                 </div>
               </div>
+           
             </Form>
           );
         }}

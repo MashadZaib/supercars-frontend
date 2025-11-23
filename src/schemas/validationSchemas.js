@@ -40,22 +40,29 @@ export const bookingRequestSchema = Yup.object().shape({
 });
 
 export const bookingConfirmationSchema = Yup.object().shape({
-  carrierName: Yup.string().required('Carrier name is required'),
-  ratesConfirmed: Yup.string().required('Rates confirmed is required'),
-  bookingConfirmationNo: Yup.string().required('Booking confirmation number is required'),
-  bookingDate: Yup.date().required('Booking date is required'),
-  shipper: Yup.string().required('Shipper is required'),
-  portOfLoad: Yup.string().required('Port of load is required'),
-  portOfDischarge: Yup.string().required('Port of discharge is required'),
-  vesselName: Yup.string().required('Vessel name is required'),
-  voyage: Yup.string().required('Voyage is required'),
-  containerSize: Yup.string().required('Container size is required'),
-  quantity: Yup.number().required('Quantity is required').positive('Quantity must be positive'),
-  weightKg: Yup.number().required('Weight is required').positive('Weight must be positive'),
-  cyCfs: Yup.string().required('CY/CFS is required'),
-  hsCode: Yup.string().required('HS Code is required'),
-  cargoDescription: Yup.string().required('Cargo description is required')
+  carrier: Yup.string().required("Carrier name is required"),
+  ratesConfirmed: Yup.string().required("Rates confirmed is required"),
+  bookingConfirmationNo: Yup.string().required("Booking confirmation number is required"),
+  bookingDate: Yup.date().required("Booking date is required"),
+  shipper: Yup.string().required("Shipper is required"),
+
+  vessel: Yup.string().required("Vessel name is required"),
+  voyage: Yup.string().required("Voyage is required"),
+
+  quantity: Yup.number()
+    .required("Quantity is required")
+    .positive("Quantity must be positive"),
+  weightKg: Yup.number()
+    .required("Weight is required")
+    .positive("Weight must be positive"),
+
+  cyCfs: Yup.string().required("CY/CFS is required"),
+
+ 
+
+  cargoDescription: Yup.string().required("Cargo description is required"),
 });
+
 
 export const clientInfoSchema = Yup.object().shape({
   date: Yup.string().required('Date is required'),
