@@ -8,6 +8,7 @@ export const BookingProvider = ({ children }) => {
 
   // 🔹 NEW: store the saved Booking Request payload
   const [bookingRequestData, setBookingRequestData] = useState(null);
+  const [bookingConfirmationData, setBookingConfirmationData] = useState(null);
 
   return (
     <BookingContext.Provider
@@ -16,6 +17,8 @@ export const BookingProvider = ({ children }) => {
         setBookingId,
         bookingRequestData,
         setBookingRequestData,
+        bookingConfirmationData,
+        setBookingConfirmationData
       }}
     >
       {children}

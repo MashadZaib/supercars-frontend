@@ -9,6 +9,7 @@ import {
   updateBookingConfirmation,
 } from "../../api/bookingConfirmationApi";
 
+
 import {
   getCarriers,
   createCarrier,
@@ -80,7 +81,7 @@ const BookingConfirmation = ({
   onFormValidityChange,
   modalResult = null,
 }) => {
-  const { bookingId, bookingRequestData } = useBooking();
+  const { bookingId, bookingRequestData, setBookingConfirmationData  } = useBooking();
 
   const initialValues = {
     id: initialData?.id || null,
@@ -281,6 +282,15 @@ const BookingConfirmation = ({
         response = await createBookingConfirmation(formatted);
         toast.success("Booking Confirmation saved successfully!");
       }
+      setBookingConfirmationData({
+        shipper: selectedItems.shipper,
+        vessel: values.vessel,
+        voyage: values.voyage,
+        portOfLoad: values.portOfLoad,
+        portOfDischarge: values.portOfDischarge,
+        containerSize: values.containerSize,
+        quantity: values.quantity
+      });
 
       if (onSubmit) onSubmit(response, true);
       resetForm({ values: { ...values, ...response } });
@@ -470,6 +480,8 @@ const BookingConfirmation = ({
             address: modalResult.data.address,
             role: "shipper",
             password: randomPassword,
+            phone: modalResult.data.phone,
+            contact_person: modalResult.data.contactPerson,
           };
           const newShipper = await createShipper(payload);
           setShippers((prev) => [newShipper, ...prev]);
@@ -841,6 +853,16 @@ const BookingConfirmation = ({
                             label: "Shipper Email",
                             required: true,
                           },
+                           {
+                            name: "phone",
+                            label: "Shipper Phone Number",
+                            required: true,
+                          },
+                           {
+                            name: "contactPerson",
+                            label: "Shipper Contact Person",
+                            required: true,
+                          },
                           {
                             type: "textarea",
                             name: "address",
@@ -1041,6 +1063,7 @@ const BookingConfirmation = ({
                     Quantity <span className="text-danger">*</span>
                   </label>
                   <Field
+                    readOnly
                     type="number"
                     name="quantity"
                     className={`form-control ${
@@ -1059,6 +1082,7 @@ const BookingConfirmation = ({
                     Weight (KG)
                   </label>
                   <Field
+                    readOnly
                     type="number"
                     name="weightKg"
                     className="form-control"

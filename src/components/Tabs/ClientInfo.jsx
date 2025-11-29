@@ -6,6 +6,7 @@ import { useBooking } from "../../context/BookingContext";
 import { toast } from "react-toastify";
 import { createClient, updateClient, getClient } from "../../api/clientInfoApi";
 import { createLink } from "../../api/bookingRequestClientInfoApi";
+import { getClients } from "../../api/clientInfoApi";
 const AutoCompleteList = ({ items, onSelect, visible, fieldName, loading }) => {
   if (!visible) return null;
 
@@ -35,12 +36,12 @@ const AutoCompleteList = ({ items, onSelect, visible, fieldName, loading }) => {
             style={{ cursor: "pointer" }}
             onClick={() => onSelect(item)}
           >
-             <>
-                <strong>{item.name}</strong>
-                {item.address && (
-                  <small className="text-muted d-block">{item.address}</small>
-                )}
-              </>
+            <>
+              <strong>{item.name}</strong>
+              {item.address && (
+                <small className="text-muted d-block">{item.address}</small>
+              )}
+            </>
 
             {item.type && (
               <span className="text-muted ms-2">({item.type})</span>
@@ -61,6 +62,7 @@ const ClientInfo = ({
   onFormValidityChange,
   modalResult = null,
 }) => {
+  const { bookingId } = useBooking();
   const initialValues = {
     id: initialData?.id || null,
     date: new Date().toLocaleDateString("en-US", {
@@ -100,10 +102,7 @@ const ClientInfo = ({
 
     // Check if the value exists in the suggestions (case insensitive)
     const exists = suggestions.some((item) => {
-      const text =
-        item.addrees ||
-        item.name ||
-        "";
+      const text = item.addrees || item.name || "";
 
       return text.toLowerCase() === value.toLowerCase();
     });
@@ -164,8 +163,8 @@ const ClientInfo = ({
       const formatted = {
         booking_request_id: bookingId,
         client_info_id: values.client_info_id,
-        method_type: values.methodSent,        // dropdown value
-        entry_date: new Date().toISOString().split("T")[0]
+        method_type: values.methodSent, // dropdown value
+        entry_date: new Date().toISOString().split("T")[0],
       };
 
       let response;
@@ -184,31 +183,81 @@ const ClientInfo = ({
       setSubmitting(false);
     }
   };
-  const handleSearchClient = async (term, fromButton = false) => {
-      if (!term.trim()) {
-        setSuggestions((prev) => ({ ...prev, client: [] }));
-        setVisibleSuggestions((prev) => ({ ...prev, client: false }));
-        setValidatedValues((prev) => ({ ...prev, client: false }));
-        return;
+  const handleSearchClient = async (term, setFieldValueRef = null) => {
+    if (!term.trim()) {
+      setSuggestions((prev) => ({ ...prev, client: [] }));
+      setVisibleSuggestions((prev) => ({ ...prev, client: false }));
+      setValidatedValues((prev) => ({ ...prev, client: false }));
+      return;
+    }
+
+    try {
+      setLoading((prev) => ({ ...prev, client: true }));
+      setVisibleSuggestions((prev) => ({ ...prev, client: true }));
+
+      const allClients = await getClients();
+
+      const filtered = allClients.filter(
+        (item) =>
+          (item.name || "").toLowerCase().includes(term.toLowerCase()) ||
+          (item.address || "").toLowerCase().includes(term.toLowerCase())
+      );
+
+      setSuggestions((prev) => ({
+        ...prev,
+        client: filtered,
+      }));
+
+      validateFieldInRealTime("client", term, filtered);
+
+      // ⭐ Auto-select exact match and fill all fields
+      if (setFieldValueRef) {
+        const exactMatch = filtered.find(
+          (c) => c.name.toLowerCase() === term.toLowerCase()
+        );
+
+        if (exactMatch) {
+          handleSuggestionSelect("client", exactMatch, setFieldValueRef);
+        }
       }
-  
-      try {
-        setLoading((prev) => ({ ...prev, client: true }));
-        setVisibleSuggestions((prev) => ({ ...prev, client: true }));
-  
-        const data = await getClients(term); // FIXED
-        const filtered = (data || []).filter((u) => u.role === "client"); // ONLY SHIPPERS
-  
-        setSuggestions((prev) => ({ ...prev, client: filtered }));
-  
-        validateFieldInRealTime("client", term, filtered);
-      } catch {
-        setSuggestions((prev) => ({ ...prev, client: [] }));
-        setValidatedValues((prev) => ({ ...prev, client: false }));
-      } finally {
-        setLoading((prev) => ({ ...prev, client: false }));
-      }
+    } catch (err) {
+      console.error(err);
+      setSuggestions((prev) => ({ ...prev, client: [] }));
+      setValidatedValues((prev) => ({ ...prev, client: false }));
+    } finally {
+      setLoading((prev) => ({ ...prev, client: false }));
+    }
   };
+
+  const handleSuggestionSelect = (fieldName, item, setFieldValue) => {
+    const value = item.name || "";
+    const id = item.id;
+
+    // Set both the display text and the ID
+    setFieldValue(fieldName, value);
+    setFieldValue("client_info_id", id);
+
+    // Save selected item
+    setSelectedItems((prev) => ({ ...prev, [fieldName]: item }));
+
+    // Hide suggestions
+    setVisibleSuggestions((prev) => ({ ...prev, [fieldName]: false }));
+
+    // Mark as valid
+    setValidatedValues((prev) => ({ ...prev, [fieldName]: true }));
+
+    // Auto-fill other details
+    setFieldValue("companyRegistrationNo", item.company_registration_no || "");
+    setFieldValue("taxId", item.tax_id || "");
+    setFieldValue("companyVatNo", item.company_vat_no || "");
+    setFieldValue("contactPerson", item.contact_person || "");
+    setFieldValue("phone", item.phone || "");
+    setFieldValue("email", item.email || "");
+    setFieldValue("address", item.address || "");
+
+    toast.success(`Selected: ${value}`);
+  };
+
   const handleInputChange = (
     fieldName,
     value,
@@ -219,12 +268,12 @@ const ClientInfo = ({
 
     // Clear the ID when user starts typing
     const selectedText =
-      selectedItems[fieldName]?.name ||
-      selectedItems[fieldName]?.address ||
-      "";
+      selectedItems[fieldName]?.name || selectedItems[fieldName]?.address || "";
 
     if (value.trim().toLowerCase() !== selectedText.trim().toLowerCase()) {
-      setFieldValue(`${fieldName}Id`, "");
+      if (fieldName === "client") {
+        setFieldValue("client_info_id", "");
+      }
       setSelectedItems((prev) => ({ ...prev, [fieldName]: null }));
     }
 
@@ -244,32 +293,42 @@ const ClientInfo = ({
       }
     }
   };
-    useEffect(() => {
-      if (!modalResult) return;
-  
-      const handleModalResult = async () => {
-        try {
-          if (modalResult.title === "Create New Client") {
+  useEffect(() => {
+    if (!modalResult) return;
 
-            const newClient = await createClient(modalResult.data);
-            setClients((prev) => [newClient, ...prev]);
-            setSuggestions((prev) => ({
-              ...prev,
-              client: [newClient, ...prev.client],
-            }));
-            toast.success(`Client Information "${newClient.name}" added!`);
-          }
-        } catch (err) {
-          console.error("Error creating record:", err);
-          toast.error("Failed to add record");
-        } finally {
-          setShowModal(false);
+    const handleModalResult = async () => {
+      try {
+        if (modalResult.title === "Create New Client") {
+          const payload = {
+            name: modalResult.data.clientName,
+            contact_person: modalResult.data.clientContactPerson,
+            email: modalResult.data.clientEmail,
+            phone: modalResult.data.clientPhone,
+            address: modalResult.data.clientAddress,
+            tax_id: modalResult.data.clientTaxID,
+            company_registration_no:
+              modalResult.data.clientCompanyRegistrationNo,
+            company_vat_no: modalResult.data.clientCompanyVatNo,
+          };
+
+          const newClient = await createClient(payload);
+          setClients((prev) => [newClient, ...prev]);
+          setSuggestions((prev) => ({
+            ...prev,
+            client: [newClient, ...prev.client],
+          }));
+          toast.success(`Client Information "${newClient.name}" added!`);
         }
-      };
-  
-      handleModalResult();
-    }, [modalResult]);
+      } catch (err) {
+        console.error("Error creating record:", err);
+        toast.error("Failed to add record");
+      } finally {
+        setShowModal(false);
+      }
+    };
 
+    handleModalResult();
+  }, [modalResult]);
 
   return (
     <>
@@ -285,17 +344,24 @@ const ClientInfo = ({
         validateOnMount
         enableReinitialize
       >
-        {({ isSubmitting, isValid, touched, values, errors }) => {
-         useEffect(() => {
-                    console.log("=== FORM VALIDATION DEBUG ===");
-                    console.log("Is Form Valid?", isValid);
-                    console.log("All Errors:", errors);
-                    console.log("All Touched Fields:", touched);
-                    console.log("Current Values:", values);
-                    console.log("=== END DEBUG ===");
-        
-                    if (onFormValidityChange) onFormValidityChange(isValid);
-                  }, [isValid, errors, touched, values]);
+        {({
+          isSubmitting,
+          isValid,
+          touched,
+          values,
+          errors,
+          setFieldValue,
+        }) => {
+          useEffect(() => {
+            console.log("=== FORM VALIDATION DEBUG ===");
+            console.log("Is Form Valid?", isValid);
+            console.log("All Errors:", errors);
+            console.log("All Touched Fields:", touched);
+            console.log("Current Values:", values);
+            console.log("=== END DEBUG ===");
+
+            if (onFormValidityChange) onFormValidityChange(isValid);
+          }, [isValid, errors, touched, values]);
           return (
             <Form>
               {/* Date and Method Sent */}
@@ -349,7 +415,7 @@ const ClientInfo = ({
 
               {/* Client Search */}
               <div className="row mb-3">
-                   <div className="col-md-6 position-relative">
+                <div className="col-md-6 position-relative">
                   <label htmlFor="client" className="form-label">
                     Client Name & Address <span className="text-danger">*</span>
                   </label>
@@ -387,29 +453,29 @@ const ClientInfo = ({
                       }}
                       autoComplete="off"
                     />
-                    
+
                     <button
-                        type="button"
-                        className="btn btn-outline-secondary"
-                        onClick={() => {
-                          const v = values.client;
-                          if (v) {
-                            handleSearchClient(v, true);
-                          } else {
-                            toast.warning("Please enter a search term first");
-                          }
-                        }}
-                        disabled={loading.client}
-                      >
-                        {loading.client ? (
-                          <i className="fas fa-spinner fa-spin"></i>
-                        ) : (
-                          <i className="fas fa-search"></i>
-                        )}
-                      </button>
-                    </div>
-                    <Field type="hidden" name="client_info_id" />
-                      <AutoCompleteList
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={() => {
+                        const v = values.client;
+                        if (v) {
+                          handleSearchClient(v, true);
+                        } else {
+                          toast.warning("Please enter a search term first");
+                        }
+                      }}
+                      disabled={loading.client}
+                    >
+                      {loading.client ? (
+                        <i className="fas fa-spinner fa-spin"></i>
+                      ) : (
+                        <i className="fas fa-search"></i>
+                      )}
+                    </button>
+                  </div>
+                  <Field type="hidden" name="client_info_id" />
+                  <AutoCompleteList
                     items={suggestions.client}
                     visible={visibleSuggestions.client}
                     fieldName="client"
@@ -418,13 +484,13 @@ const ClientInfo = ({
                       handleSuggestionSelect("client", item, setFieldValue)
                     }
                   />
-                  </div>
-                  <ErrorMessage
-                    name="client"
-                    component="div"
-                    className="text-danger small mt-1"
-                  />
                 </div>
+                <ErrorMessage
+                  name="client"
+                  component="div"
+                  className="text-danger small mt-1"
+                />
+
                 <div className="col-md-6 text-end">
                   <button
                     type="button"
@@ -471,7 +537,7 @@ const ClientInfo = ({
                     <i className="fas fa-plus"></i> Create New
                   </button>
                 </div>
-            
+              </div>
 
               {/* Company Information */}
               <div className="card mb-4">
