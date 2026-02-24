@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useRef } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { steps } from '../data/steps'
-import { useBookingsStorage, useBooking, getBookingLabel } from '../hooks/useBookings'
 import { computeOverallStatusFromSteps, filterRegister, xlsxFilenameFromRow } from '../utils/helpers'
 import { exportInvoiceXlsx } from '../utils/exportInvoiceXlsx'
+import { getBookingByKey as apiGetBookingByKey, updateBookingByKey as apiUpdateBookingByKey, deleteBookingByKey as apiDeleteBookingByKey, bookingToStepData } from '../api/bookings'
 import Header from '../components/Header'
 import StepsPanel from '../components/StepsPanel'
 import Dashboard from '../components/Dashboard'
@@ -15,24 +15,49 @@ export default function BookingForm() {
   const { bookingId } = useParams()
   const navigate = useNavigate()
   const auth = useAuth()
-  const [bookings, setBookings] = useBookingsStorage()
-  const { booking, setBooking, ensureBooking } = useBooking(bookingId, bookings, setBookings)
-  const [bookingDetail, setBookingDetail] = React.useState(null)
+  const [booking, setBooking] = useState(null)
+  const [stepDataState, setStepDataState] = useState({})
+  const [bookingDetail, setBookingDetail] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const stepFormSectionRef = useRef(null)
 
   useEffect(() => {
-    ensureBooking()
-  }, [bookingId, ensureBooking])
+    let cancelled = false
+    async function load() {
+      if (!bookingId) return
+      if (!auth.user) return
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await apiGetBookingByKey(auth.token, bookingId)
+        if (!cancelled) {
+          setBooking(data)
+          setStepDataState(bookingToStepData(data))
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err.message || 'Failed to load booking')
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [auth.token, auth.user, bookingId])
 
   useEffect(() => {
-    if (booking.activeStepId && stepFormSectionRef.current) {
+    if (booking?.activeStepId && stepFormSectionRef.current) {
       stepFormSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
-  }, [booking.activeStepId])
+  }, [booking?.activeStepId])
 
-  const stepData = booking.stepData || {}
-  const registerEntries = booking.registerEntries || []
-  const filters = booking.filters || { search: '', status: '', carrier: '', from: '', to: '' }
+  const stepData = stepDataState || {}
+  const registerEntries = booking?.registerEntries || []
+  const filters = booking?.filters || { search: '', status: '', carrier: '', from: '', to: '' }
   const totalSteps = steps.length
   const completedIds = Object.keys(stepData)
   const completedCount = completedIds.length
@@ -50,25 +75,42 @@ export default function BookingForm() {
   function saveStepData(stepId, formValues) {
     if (!stepId) return
     const stepMeta = steps.find(s => s.id === stepId)
-    setBooking(prev => ({
-      ...prev,
-      stepData: {
-        ...prev.stepData,
+    setStepDataState(prev => {
+      const next = {
+        ...prev,
         [stepId]: { stepId, data: formValues, title: stepMeta?.title, tag: stepMeta?.tag },
-      },
-    }))
+      }
+      persistStepData(next)
+      return next
+    })
+  }
+
+  async function persistStepData(nextStepData) {
+    if (!bookingId) return
+    try {
+      const updated = await apiUpdateBookingByKey(auth.token, bookingId, nextStepData)
+      setBooking(updated)
+    } catch (err) {
+      // eslint-disable-next-line no-alert
+      alert(err.message || 'Failed to save booking')
+    }
   }
 
   function setFiltersUpdater(updater) {
-    setBooking(prev => ({ ...prev, filters: typeof updater === 'function' ? updater(prev.filters) : updater }))
+    setBooking(prev => {
+      if (!prev) return prev
+      const nextFilters = typeof updater === 'function' ? updater(prev.filters || {}) : updater
+      const next = { ...prev, filters: nextFilters }
+      return next
+    })
   }
 
   function setActiveStepId(id) {
-    setBooking(prev => ({ ...prev, activeStepId: id }))
+    setBooking(prev => (prev ? { ...prev, activeStepId: id } : prev))
   }
 
   function setCurrentUser(value) {
-    setBooking(prev => ({ ...prev, currentUser: value }))
+    setBooking(prev => (prev ? { ...prev, currentUser: value } : prev))
   }
 
   function addOrUpdateRegisterFromCurrent() {
@@ -96,7 +138,7 @@ export default function BookingForm() {
     const now = new Date()
     const nowStr = now.toLocaleString()
     const nowISO = now.toISOString()
-    const currentUsr = (booking.currentUser || '').trim() || '(NO USER)'
+    const currentUsr = (booking?.currentUser || '').trim() || '(NO USER)'
     const fullDataSnapshot = JSON.parse(JSON.stringify(stepData))
 
     setBooking(prev => {
@@ -132,23 +174,43 @@ export default function BookingForm() {
     return Array.from(s).sort()
   }, [registerEntries])
 
-  const activeStepId = booking.activeStepId ?? null
-  const currentUser = booking.currentUser ?? ''
+  const activeStepId = booking?.activeStepId ?? null
+  const currentUser = booking?.currentUser ?? ''
 
   function handleDeleteBooking() {
     if (!window.confirm('Delete this booking? This cannot be undone.')) return
-    setBookings(prev => {
-      const next = { ...prev }
-      delete next[bookingId]
-      return next
-    })
-    navigate('/', { replace: true })
+    apiDeleteBookingByKey(auth.token, bookingId)
+      .then(() => {
+        navigate('/', { replace: true })
+      })
+      .catch(err => {
+        // eslint-disable-next-line no-alert
+        alert(err.message || 'Failed to delete booking')
+      })
   }
 
   if (!bookingId) {
     return (
       <div className="app p-8">
         <p className="text-slate-600">Invalid booking.</p>
+        <Link to="/" className="text-primary-600 hover:underline mt-2 inline-block">Back to Bookings</Link>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="app p-8">
+        <p className="text-slate-600">Loading booking…</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="app p-8">
+        <p className="text-slate-600">Failed to load booking.</p>
+        <p className="text-sm text-slate-500 mt-1">{error}</p>
         <Link to="/" className="text-primary-600 hover:underline mt-2 inline-block">Back to Bookings</Link>
       </div>
     )

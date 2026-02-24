@@ -1,8 +1,7 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
-import { useBookingsStorage, getBookingsList, getBookingLabel, getBookingStatus, createEmptyBooking } from '../hooks/useBookings'
-import { generateBookingId } from '../utils/helpers'
+import { listBookings as apiListBookings, createBooking as apiCreateBooking, deleteBookingByKey as apiDeleteBookingByKey } from '../api/bookings'
 import Header from '../components/Header'
 import ParticleBackground from '../components/ParticleBackground'
 import { Link } from 'react-router-dom'
@@ -46,9 +45,9 @@ function getLastMonths(n) {
 
 function useDashboardMetrics(bookings) {
   return useMemo(() => {
-    const list = getBookingsList(bookings)
+    const list = Array.isArray(bookings) ? bookings : []
     const totalBookings = list.length
-    const totalShipments = list.reduce((sum, b) => sum + (b.registerEntries?.length || 0), 0)
+    const totalShipments = 0
     const months = getLastMonths(6)
     const monthKeys = months.map((_, i) => {
       const d = new Date()
@@ -58,34 +57,22 @@ function useDashboardMetrics(bookings) {
     const bookingsByMonth = monthKeys.map((key, idx) => {
       const [y, m] = key.split('-').map(Number)
       const count = list.filter(b => {
-        const created = new Date(b.createdAt)
+        if (!b.created_at) return false
+        const created = new Date(b.created_at)
         return created.getFullYear() === y && created.getMonth() + 1 === m
       }).length
       return { month: months[idx], bookings: count, ships: 0 }
     })
-    list.forEach(b => {
-      (b.registerEntries || []).forEach(ent => {
-        const raw = ent.lastUpdatedRaw || ent.lastUpdated || b.updatedAt
-        const date = raw ? new Date(raw) : new Date(b.updatedAt)
-        const y = date.getFullYear()
-        const m = date.getMonth() + 1
-        const key = `${y}-${String(m).padStart(2, '0')}`
-        const idx = monthKeys.indexOf(key)
-        if (idx !== -1) bookingsByMonth[idx].ships += 1
-      })
-    })
     const thisMonthBookings = bookingsByMonth[bookingsByMonth.length - 1]?.bookings ?? 0
     const lastMonthBookings = bookingsByMonth[bookingsByMonth.length - 2]?.bookings ?? 0
-    const thisMonthShips = bookingsByMonth[bookingsByMonth.length - 1]?.ships ?? 0
-    const lastMonthShips = bookingsByMonth[bookingsByMonth.length - 2]?.ships ?? 0
+    const thisMonthShips = 0
+    const lastMonthShips = 0
     const bookingTrend = lastMonthBookings > 0 ? Math.round(((thisMonthBookings - lastMonthBookings) / lastMonthBookings) * 100) : (thisMonthBookings > 0 ? 100 : 0)
     const shippingTrend = lastMonthShips > 0 ? Math.round(((thisMonthShips - lastMonthShips) / lastMonthShips) * 100) : (thisMonthShips > 0 ? 100 : 0)
     const statusCounts = {}
     list.forEach(b => {
-      (b.registerEntries || []).forEach(ent => {
-        const s = ent.overallStatus || 'NOT STARTED'
-        statusCounts[s] = (statusCounts[s] || 0) + 1
-      })
+      const s = b.booking_status || 'NOT STARTED'
+      statusCounts[s] = (statusCounts[s] || 0) + 1
     })
     const statusData = Object.entries(statusCounts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
     return {
@@ -101,37 +88,72 @@ function useDashboardMetrics(bookings) {
   }, [bookings])
 }
 
+function getBookingLabelFromApi(booking) {
+  const fileRef = (booking.file_reference || '').trim() || '(No file ref)'
+  const client = (booking.client_name || '').trim() || '(No client)'
+  return `${fileRef} – ${client}`
+}
+
 export default function BookingsList() {
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
-  const [bookings, setBookings] = useBookingsStorage()
+  const { user, token, logout } = useAuth()
+  const [bookings, setBookings] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
 
-  const list = useMemo(() => getBookingsList(bookings), [bookings])
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      if (!token) return
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await apiListBookings(token)
+        if (!cancelled) setBookings(data || [])
+      } catch (err) {
+        if (!cancelled) setError(err.message || 'Failed to load bookings')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  const list = bookings
   const metrics = useDashboardMetrics(bookings)
   const totalPages = Math.max(1, Math.ceil(list.length / PER_PAGE))
   const currentPage = Math.min(Math.max(1, page), totalPages)
   const start = (currentPage - 1) * PER_PAGE
   const pageItems = list.slice(start, start + PER_PAGE)
 
-  function handleNewBooking() {
-    const id = generateBookingId()
-    const newBooking = createEmptyBooking(id)
-    setBookings(prev => ({ ...prev, [id]: newBooking }))
-    setPage(1)
-    navigate(`/booking/${id}`)
+  async function handleNewBooking() {
+    try {
+      const created = await apiCreateBooking(token)
+      if (!created?.external_id) {
+        throw new Error('Booking created without external id')
+      }
+      setPage(1)
+      navigate(`/booking/${created.external_id}`)
+    } catch (err) {
+      alert(err.message || 'Failed to create booking')
+    }
   }
 
-  function handleDeleteBooking(e, id) {
+  async function handleDeleteBooking(e, id) {
     e.preventDefault()
     e.stopPropagation()
     if (!window.confirm('Delete this booking? This cannot be undone.')) return
-    setBookings(prev => {
-      const next = { ...prev }
-      delete next[id]
-      return next
-    })
-    if (page > 1 && pageItems.length <= 1) setPage(p => Math.max(1, p - 1))
+    try {
+      await apiDeleteBookingByKey(token, id)
+      setBookings(prev => prev.filter(b => b.external_id !== id))
+      if (page > 1 && pageItems.length <= 1) setPage(p => Math.max(1, p - 1))
+    } catch (err) {
+      alert(err.message || 'Failed to delete booking')
+    }
   }
 
   return (
@@ -250,7 +272,16 @@ export default function BookingsList() {
             </button>
           </div>
 
-          {list.length === 0 ? (
+          {loading ? (
+            <div className="py-12 text-center rounded-lg bg-slate-50 border border-slate-100">
+              <p className="text-slate-600 font-medium">Loading bookings…</p>
+            </div>
+          ) : error ? (
+            <div className="py-12 text-center rounded-lg bg-red-50 border border-red-100">
+              <p className="text-red-600 font-medium">Failed to load bookings</p>
+              <p className="text-sm text-red-500 mt-1">{error}</p>
+            </div>
+          ) : list.length === 0 ? (
             <div className="py-12 text-center rounded-lg bg-slate-50 border border-slate-100">
               <p className="text-slate-600 font-medium">No bookings yet</p>
               <p className="text-sm text-slate-500 mt-1">Click “New Booking” to create your first booking.</p>
@@ -278,35 +309,45 @@ export default function BookingsList() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {pageItems.map(b => {
-                      const status = getBookingStatus(b)
+                      const status = b.booking_status || 'NOT STARTED'
                       return (
-                        <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="px-4 py-3 font-mono text-xs text-slate-600 truncate max-w-[140px]" title={b.id}>
-                            {b.id.slice(0, 12)}…
+                        <tr key={b.external_id || b.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-4 py-3 font-mono text-xs text-slate-600 truncate max-w-[140px]" title={b.external_id || String(b.id)}>
+                            {(b.external_id || String(b.id)).slice(0, 16)}…
                           </td>
-                          <td className="px-4 py-3 text-slate-700 max-w-[200px] truncate" title={getBookingLabel(b)}>
-                            {getBookingLabel(b)}
+                          <td className="px-4 py-3 text-slate-700 max-w-[200px] truncate" title={getBookingLabelFromApi(b)}>
+                            {getBookingLabelFromApi(b)}
                           </td>
                           <td className="px-4 py-3">
                             <span className={statusBadgeClass(status)} title={status}>{status}</span>
                           </td>
                           <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-                            {new Date(b.createdAt).toLocaleDateString()} {new Date(b.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {b.created_at && (
+                              <>
+                                {new Date(b.created_at).toLocaleDateString()}{' '}
+                                {new Date(b.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-                            {new Date(b.updatedAt).toLocaleDateString()} {new Date(b.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {b.updated_at && (
+                              <>
+                                {new Date(b.updated_at).toLocaleDateString()}{' '}
+                                {new Date(b.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-right">
                             <div className="flex items-center justify-end gap-2 flex-wrap">
                               <Link
-                                to={`/booking/${b.id}`}
+                                to={`/booking/${b.external_id || b.id}`}
                                 className="btn-primary py-1.5 px-3 text-xs inline-flex items-center gap-1.5"
                               >
                                 Open / Edit
                               </Link>
                               <button
                                 type="button"
-                                onClick={e => handleDeleteBooking(e, b.id)}
+                                onClick={e => handleDeleteBooking(e, b.external_id || b.id)}
                                 className="px-3 py-1.5 text-xs font-medium rounded-button border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-300 focus:ring-offset-1"
                                 title="Delete booking"
                               >
